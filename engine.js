@@ -125,21 +125,39 @@ export class ArchitectureSimulator {
         // Render Nodes
         this.config.nodes.forEach(node => {
             const el = document.createElement('div');
+            const typeDef = this.config.nodeTypes[node.type] || {};
+            
             el.className = `node ${node.type}`;
             el.id = node.id;
             el.style.left = `${node.x}px`;
             el.style.top = `${node.y}px`;
             
-            // Handle custom icon styling if provided
-            let iconStyle = '';
-            if (node.iconColor) iconStyle += `color: ${node.iconColor}; background: white;`; // Default override
-            if (node.iconBg) iconStyle += `background: ${node.iconBg}; color: white;`;
+            // Apply type-based styles if defined
+            if (typeDef.style) {
+                if (typeDef.style === 'dashed') el.style.borderStyle = 'dashed';
+                if (typeDef.style === 'border-left') el.style.borderLeft = `3px solid ${typeDef.iconColor || 'var(--c-radius)'}`;
+            }
 
-            // Check if icon is a FontAwesome class or text
-            const iconContent = node.icon.includes('fa-') ? `<i class="${node.icon}"></i>` : node.icon;
+            // Handle custom icon styling
+            let iconStyle = '';
+            const iconColor = node.iconColor || typeDef.iconColor;
+            const iconBg = node.iconBg || typeDef.iconBg;
+            
+            if (iconColor) iconStyle += `color: ${iconColor}; background: white;`;
+            if (iconBg) iconStyle += `background: ${iconBg}; color: ${iconColor ? iconColor : 'white'};`;
+            if (typeDef.iconBg && !iconBg) iconStyle += `background: ${typeDef.iconBg};`;
+
+            // Header styling
+            let headerStyle = '';
+            if (typeDef.headerBg) headerStyle += `background: ${typeDef.headerBg};`;
+            if (typeDef.headerColor) headerStyle += `color: ${typeDef.headerColor};`;
+
+            // Icon Content
+            const iconVal = node.icon || typeDef.icon || '';
+            const iconContent = iconVal.includes('fa-') ? `<i class="${iconVal}"></i>` : iconVal;
 
             el.innerHTML = `
-                <div class="node-header">
+                <div class="node-header" style="${headerStyle}">
                     <div class="node-icon" style="${iconStyle}">${iconContent}</div> ${node.label}
                 </div>
                 <div class="node-body">
@@ -154,12 +172,7 @@ export class ArchitectureSimulator {
     renderLines() {
         // Define Markers
         let defs = `<defs>`;
-        const markers = new Set();
         
-        // Standard markers based on config colors
-        // We need to map connection colors/types to markers
-        // In the original, markers were m-admin, m-radius etc.
-        // We will generate markers for each layer type
         this.config.layers.forEach(layer => {
              defs += `
               <marker id="m-${layer.id}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
@@ -175,6 +188,10 @@ export class ArchitectureSimulator {
             const n2 = document.getElementById(conn.to);
             if (!n1 || !n2) return;
 
+            // Infer color from layer definition if not explicit
+            const layerDef = this.config.layers.find(l => l.id === conn.type);
+            const color = conn.color || (layerDef ? layerDef.color : '#fff');
+
             const p1 = this.getNodeCenter(n1);
             const p2 = this.getNodeCenter(n2);
 
@@ -188,7 +205,7 @@ export class ArchitectureSimulator {
             // Visual Path
             const pathVis = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             pathVis.setAttribute('d', d);
-            pathVis.setAttribute('stroke', conn.color);
+            pathVis.setAttribute('stroke', color);
             
             let classes = `conn-line layer-${conn.type}`;
             if (conn.isWan) classes += ' layer-wan';
@@ -209,10 +226,12 @@ export class ArchitectureSimulator {
             pathHit.setAttribute('class', hitClasses);
 
             // Events
-            pathHit.addEventListener('click', (e) => { e.stopPropagation(); this.inspectConn(conn); });
+            // Pass the resolved color to the inspector
+            const connWithColor = { ...conn, color: color };
+            pathHit.addEventListener('click', (e) => { e.stopPropagation(); this.inspectConn(connWithColor); });
             pathHit.addEventListener('mouseenter', (e) => {
                 pathVis.classList.add('hovered');
-                this.showTooltip(e, conn);
+                this.showTooltip(e, connWithColor);
             });
             pathHit.addEventListener('mouseleave', () => {
                 pathVis.classList.remove('hovered');

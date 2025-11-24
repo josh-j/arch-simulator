@@ -29,6 +29,15 @@ export const ciscoIseConfig = {
       "c-dns": "#84cc16"      // Lime - DNS
     }
   },
+  // Defaults for Node Types to reduce repetition
+  nodeTypes: {
+    pan: { icon: "P", iconBg: "var(--c-admin)", headerBg: "rgba(239, 68, 68, 0.1)", headerColor: "#fca5a5" },
+    mnt: { icon: "M", iconBg: "var(--c-logs)", headerBg: "rgba(16, 185, 129, 0.1)", headerColor: "#6ee7b7" },
+    psn: { icon: "S", iconBg: "var(--c-radius)", headerBg: "rgba(59, 130, 246, 0.1)", headerColor: "#93c5fd" },
+    infra: { iconBg: "var(--text-mute)", style: "dashed" },
+    endpoint: { iconBg: "white", iconColor: "var(--c-radius)", style: "border-left" }
+  },
+  // Layer definitions (color is now inferred from here)
   layers: [
     { id: "radius", label: "RADIUS", color: "var(--c-radius)", active: true },
     { id: "tacacs", label: "TACACS+", color: "var(--c-tacacs)", active: true },
@@ -53,23 +62,23 @@ export const ciscoIseConfig = {
   ],
   nodes: [
     // HQ Nodes
-    { id: "pan1", type: "pan", label: "Primary PAN", sub: "Admin & Config Master", tag: "TCP 12001", tagClass: "crit", icon: "P", x: 600, y: 200 },
+    { id: "pan1", type: "pan", label: "Primary PAN", sub: "Admin & Config Master", tag: "TCP 12001", tagClass: "crit", x: 600, y: 200 },
     { id: "pan2", type: "pan", label: "Secondary PAN", sub: "Admin Standby", tag: "DB Replica", icon: "S", x: 1000, y: 200 },
-    { id: "mnt1", type: "mnt", label: "Primary MnT", sub: "Log Processor", tag: "Syslog 20514", icon: "M", x: 600, y: 450 },
+    { id: "mnt1", type: "mnt", label: "Primary MnT", sub: "Log Processor", tag: "Syslog 20514", x: 600, y: 450 },
     { id: "mnt2", type: "mnt", label: "Secondary MnT", sub: "Log Standby", tag: "Replica", icon: "M2", x: 1000, y: 450 },
     { id: "psn1", type: "psn", label: "PSN-HQ-01", sub: "Runtime Engine", tag: "RADIUS/TACACS", icon: "S1", x: 600, y: 800 },
     { id: "psn2", type: "psn", label: "PSN-HQ-02", sub: "Runtime Engine", tag: "RADIUS/TACACS", icon: "S2", x: 1000, y: 800 },
     
     // HQ Infra
-    { id: "ad", type: "infra", label: "Active Directory", sub: "Identity Store (HQ)", tag: "Kerberos/LDAP", icon: "AD", iconColor: "var(--c-ad)", x: 200, y: 750 },
-    { id: "ca", type: "infra", label: "Internal CA", sub: "PKI Authority", tag: "CRL/OCSP", icon: "fas fa-certificate", iconColor: "var(--c-pki)", x: 200, y: 300 },
-    { id: "dhcp-dc", type: "infra", label: "DHCP HQ", sub: "IP Mgmt", tag: "Helper", icon: "D", iconColor: "var(--c-dhcp)", x: 400, y: 1200 },
+    { id: "ad", type: "infra", label: "Active Directory", sub: "Identity Store (HQ)", tag: "Kerberos/LDAP", icon: "AD", iconBg: "var(--c-ad)", x: 200, y: 750 },
+    { id: "ca", type: "infra", label: "Internal CA", sub: "PKI Authority", tag: "CRL/OCSP", icon: "fas fa-certificate", iconBg: "var(--c-pki)", x: 200, y: 300 },
+    { id: "dhcp-dc", type: "infra", label: "DHCP HQ", sub: "IP Mgmt", tag: "Helper", icon: "D", iconBg: "var(--c-dhcp)", x: 400, y: 1200 },
 
     // Branch Nodes
     { id: "psn3", type: "psn", label: "PSN-Branch", sub: "Local Runtime", tag: "Survivable", tagClass: "crit", icon: "S3", x: 2100, y: 600 },
-    { id: "ad-br", type: "infra", label: "Branch DC", sub: "Local Identity", tag: "Low Latency", icon: "DC", iconColor: "var(--c-ad)", x: 2700, y: 600 },
+    { id: "ad-br", type: "infra", label: "Branch DC", sub: "Local Identity", tag: "Low Latency", icon: "DC", iconBg: "var(--c-ad)", x: 2700, y: 600 },
     { id: "sw-br", type: "infra", label: "Branch Switch", sub: "Authenticator", tag: "802.1X/MAB", icon: "fas fa-sitemap", iconBg: "#475569", x: 2400, y: 1000 },
-    { id: "dhcp-br", type: "infra", label: "Branch DHCP", sub: "Local Scopes", tag: "Relay", icon: "D", iconColor: "var(--c-dhcp)", x: 2700, y: 350 },
+    { id: "dhcp-br", type: "infra", label: "Branch DHCP", sub: "Local Scopes", tag: "Relay", icon: "D", iconBg: "var(--c-dhcp)", x: 2700, y: 350 },
 
     // Endpoints
     { id: "pc", type: "endpoint", label: "Laptop", sub: "<strong>EAP-TLS</strong><br />Supplicant", icon: "fas fa-laptop", x: 2100, y: 1400 },
@@ -77,26 +86,26 @@ export const ciscoIseConfig = {
   ],
   connections: [
       // Admin Plane
-      {from: 'pan1', to: 'pan2', color: 'var(--c-admin)', type: 'admin', label: 'Replication (TCP 12001)', detail: '<strong>JGroups & Oracle Data Guard</strong><br/>Synchronizes policy configuration and database changes. Latency sensitivity: Medium.'},
-      {from: 'pan1', to: 'psn1', color: 'var(--c-admin)', type: 'admin', label: 'Config Push', detail: '<strong>Policy Distribution</strong><br/>Incremental updates pushed to Runtime nodes. <br/><em>Risk:</em> Slow WAN links can cause "Out of Sync" states.'},
-      {from: 'pan1', to: 'psn2', color: 'var(--c-admin)', type: 'admin', label: 'Config Push', detail: 'Incremental config updates'},
-      {from: 'pan1', to: 'psn3', color: 'var(--c-admin)', type: 'admin', label: 'WAN Config Push', detail: '<strong>Remote Replication</strong><br/>Policy updates sent over WAN to Branch PSN. <br/><em>Port:</em> TCP 12001.', isWan: true, dash: true},
-      {from: 'pan1', to: 'mnt1', color: 'var(--c-admin)', type: 'admin', label: 'Admin Sync', detail: 'Syncs admin configuration structure'},
-      {from: 'pan1', to: 'mnt2', color: 'var(--c-admin)', type: 'admin', label: 'Admin Sync', detail: 'Syncs admin configuration to Secondary MnT'},
-      {from: 'mnt1', to: 'mnt2', color: 'var(--c-admin)', type: 'admin', label: 'Log Rep (TCP 1521)', detail: '<strong>Database Replication</strong><br/>Primary MnT replicates operational data to Secondary. Failover is manual.'},
+      {from: 'pan1', to: 'pan2', type: 'admin', label: 'Replication (TCP 12001)', detail: '<strong>JGroups & Oracle Data Guard</strong><br/>Synchronizes policy configuration and database changes. Latency sensitivity: Medium.'},
+      {from: 'pan1', to: 'psn1', type: 'admin', label: 'Config Push', detail: '<strong>Policy Distribution</strong><br/>Incremental updates pushed to Runtime nodes. <br/><em>Risk:</em> Slow WAN links can cause "Out of Sync" states.'},
+      {from: 'pan1', to: 'psn2', type: 'admin', label: 'Config Push', detail: 'Incremental config updates'},
+      {from: 'pan1', to: 'psn3', type: 'admin', label: 'WAN Config Push', detail: '<strong>Remote Replication</strong><br/>Policy updates sent over WAN to Branch PSN. <br/><em>Port:</em> TCP 12001.', isWan: true, dash: true},
+      {from: 'pan1', to: 'mnt1', type: 'admin', label: 'Admin Sync', detail: 'Syncs admin configuration structure'},
+      {from: 'pan1', to: 'mnt2', type: 'admin', label: 'Admin Sync', detail: 'Syncs admin configuration to Secondary MnT'},
+      {from: 'mnt1', to: 'mnt2', type: 'admin', label: 'Log Rep (TCP 1521)', detail: '<strong>Database Replication</strong><br/>Primary MnT replicates operational data to Secondary. Failover is manual.'},
 
       // Log Plane
-      {from: 'psn1', to: 'mnt1', color: 'var(--c-logs)', type: 'logs', label: 'Secure Syslog (8671)', detail: '<strong>ISE Messaging Service</strong><br/>RabbitMQ (TLS) ensures reliable log delivery with buffering during WAN outages.'},
-      {from: 'psn2', to: 'mnt1', color: 'var(--c-logs)', type: 'logs', label: 'Secure Syslog (8671)', detail: 'Secure Syslog via ISE Messaging Service'},
-      {from: 'psn3', to: 'mnt1', color: 'var(--c-logs)', type: 'logs', label: 'WAN Logs (8671)', detail: '<strong>WAN Logging</strong><br/>Uses compression and buffering. Vital for troubleshooting branch auth failures.', isWan: true, dash: true},
+      {from: 'psn1', to: 'mnt1', type: 'logs', label: 'Secure Syslog (8671)', detail: '<strong>ISE Messaging Service</strong><br/>RabbitMQ (TLS) ensures reliable log delivery with buffering during WAN outages.'},
+      {from: 'psn2', to: 'mnt1', type: 'logs', label: 'Secure Syslog (8671)', detail: 'Secure Syslog via ISE Messaging Service'},
+      {from: 'psn3', to: 'mnt1', type: 'logs', label: 'WAN Logs (8671)', detail: '<strong>WAN Logging</strong><br/>Uses compression and buffering. Vital for troubleshooting branch auth failures.', isWan: true, dash: true},
 
       // Radius Plane
-      {from: 'sw-br', to: 'psn3', color: 'var(--c-radius)', type: 'radius', label: 'RADIUS (UDP 1812)', detail: '<strong>Access-Request</strong><br/>Contains User-Name, NAS-IP, Called-Station-ID. <br/><em>Timeout:</em> Typically 5 seconds.'},
-      {from: 'psn3', to: 'sw-br', color: 'var(--c-radius)', type: 'radius', label: 'CoA (UDP 1700)', dash: true, curve: -40, detail: '<strong>Change of Authorization</strong><br/>RFC 5176. Forces switch to re-auth port or bounce link after profiling update.'},
+      {from: 'sw-br', to: 'psn3', type: 'radius', label: 'RADIUS (UDP 1812)', detail: '<strong>Access-Request</strong><br/>Contains User-Name, NAS-IP, Called-Station-ID. <br/><em>Timeout:</em> Typically 5 seconds.'},
+      {from: 'psn3', to: 'sw-br', type: 'radius', label: 'CoA (UDP 1700)', dash: true, curve: -40, detail: '<strong>Change of Authorization</strong><br/>RFC 5176. Forces switch to re-auth port or bounce link after profiling update.'},
 
       // TACACS+ Plane
-      {from: 'sw-br', to: 'psn3', color: 'var(--c-tacacs)', type: 'tacacs', curve: 60, label: 'TACACS+ (TCP 49)', detail: '<strong>Device Administration</strong><br/>Encrypted TCP session for Authentication, Authorization, and Accounting (AAA) of network admins.'},
-      {from: 'sw-br', to: 'psn1', color: 'var(--c-tacacs)', type: 'tacacs', dash: true, label: 'TACACS+ Failover', detail: '<strong>Central Fallback</strong><br/>If branch PSN fails, device admin falls back to HQ.', isWan: true},
+      {from: 'sw-br', to: 'psn3', type: 'tacacs', curve: 60, label: 'TACACS+ (TCP 49)', detail: '<strong>Device Administration</strong><br/>Encrypted TCP session for Authentication, Authorization, and Accounting (AAA) of network admins.'},
+      {from: 'sw-br', to: 'psn1', type: 'tacacs', dash: true, label: 'TACACS+ Failover', detail: '<strong>Central Fallback</strong><br/>If branch PSN fails, device admin falls back to HQ.', isWan: true},
 
       // Endpoint Connections
       {from: 'pc', to: 'sw-br', color: '#fff', type: 'radius', label: 'EAPOL', detail: '<strong>EAP over LAN</strong><br/>Layer 2 encapsulation of EAP frames between PC and Switch.'},
@@ -104,31 +113,31 @@ export const ciscoIseConfig = {
 
       // Infrastructure Split
       // AD/Identity
-      {from: 'psn1', to: 'ad', color: 'var(--c-ad)', type: 'ad', label: 'Kerberos (88)', detail: '<strong>Identity Lookup</strong><br/>Validates passwords and retrieves Group SIDs. <br/><em>Critical:</em> >1 sec latency here causes massive thread blocking.'},
-      {from: 'psn2', to: 'ad', color: 'var(--c-ad)', type: 'ad', label: 'Kerberos (88)', detail: 'Identity Lookup'},
-      {from: 'psn3', to: 'ad-br', color: 'var(--c-ad)', type: 'ad', label: 'Local AD (88)', detail: '<strong>Local Auth</strong><br/>Keeps auth traffic off the WAN. Essential for survivability.'},
-      {from: 'psn3', to: 'ad', color: 'var(--c-ad)', type: 'ad', dash: true, label: 'AD Fallback', detail: '<strong>WAN Fallback</strong><br/>Used if local DC is dead. High latency risk.', isWan: true},
-      {from: 'ad', to: 'ad-br', color: 'var(--c-ad)', type: 'ad', dash: true, label: 'AD Replication', detail: '<strong>Directory Sync</strong><br/>Infrastructure replication between HQ and Branch Domain Controllers.', isWan: true},
+      {from: 'psn1', to: 'ad', type: 'ad', label: 'Kerberos (88)', detail: '<strong>Identity Lookup</strong><br/>Validates passwords and retrieves Group SIDs. <br/><em>Critical:</em> >1 sec latency here causes massive thread blocking.'},
+      {from: 'psn2', to: 'ad', type: 'ad', label: 'Kerberos (88)', detail: 'Identity Lookup'},
+      {from: 'psn3', to: 'ad-br', type: 'ad', label: 'Local AD (88)', detail: '<strong>Local Auth</strong><br/>Keeps auth traffic off the WAN. Essential for survivability.'},
+      {from: 'psn3', to: 'ad', type: 'ad', dash: true, label: 'AD Fallback', detail: '<strong>WAN Fallback</strong><br/>Used if local DC is dead. High latency risk.', isWan: true},
+      {from: 'ad', to: 'ad-br', type: 'ad', dash: true, label: 'AD Replication', detail: '<strong>Directory Sync</strong><br/>Infrastructure replication between HQ and Branch Domain Controllers.', isWan: true},
 
       // PKI
-      {from: 'psn1', to: 'ca', color: 'var(--c-pki)', type: 'pki', dash: true, label: 'OCSP (80)', detail: '<strong>Revocation Check</strong><br/>Verifies client certificate is not revoked. Fail-close behavior is common.'},
-      {from: 'psn3', to: 'ca', color: 'var(--c-pki)', type: 'pki', dash: true, label: 'WAN OCSP', detail: 'Remote Revocation Check', isWan: true},
+      {from: 'psn1', to: 'ca', type: 'pki', dash: true, label: 'OCSP (80)', detail: '<strong>Revocation Check</strong><br/>Verifies client certificate is not revoked. Fail-close behavior is common.'},
+      {from: 'psn3', to: 'ca', type: 'pki', dash: true, label: 'WAN OCSP', detail: 'Remote Revocation Check', isWan: true},
 
       // Mesh / LDD
-      {from: 'psn1', to: 'psn2', color: 'var(--c-mesh)', type: 'mesh', dash: true, label: 'LDD (8671)', detail: '<strong>Session Replication</strong><br/>Allows PSN 2 to handle CoA for PSN 1 sessions if needed.'},
-      {from: 'psn2', to: 'psn3', color: 'var(--c-mesh)', type: 'mesh', dash: true, label: 'LDD WAN', detail: 'Cross-site Session Info', isWan: true},
+      {from: 'psn1', to: 'psn2', type: 'mesh', dash: true, label: 'LDD (8671)', detail: '<strong>Session Replication</strong><br/>Allows PSN 2 to handle CoA for PSN 1 sessions if needed.'},
+      {from: 'psn2', to: 'psn3', type: 'mesh', dash: true, label: 'LDD WAN', detail: 'Cross-site Session Info', isWan: true},
 
       // DHCP
-      {from: 'sw-br', to: 'dhcp-br', color: 'var(--c-dhcp)', type: 'dhcp', dash: true, label: 'DHCP Helper', detail: 'Standard DHCP Relay'},
-      {from: 'sw-br', to: 'psn3', color: 'var(--c-dhcp)', type: 'dhcp', dash: true, curve: 40, label: 'DHCP Probe', detail: '<strong>Profiling Probe</strong><br/>IP Helper forwards copy of DHCP Request to PSN. ISE analyzes Option 55/60 to classify device.'},
-      {from: 'dhcp-br', to: 'dhcp-dc', color: 'var(--c-dhcp)', type: 'dhcp', dash: true, label: 'DHCP Sync', detail: 'Scope Failover Sync', isWan: true},
+      {from: 'sw-br', to: 'dhcp-br', type: 'dhcp', dash: true, label: 'DHCP Helper', detail: 'Standard DHCP Relay'},
+      {from: 'sw-br', to: 'psn3', type: 'dhcp', dash: true, curve: 40, label: 'DHCP Probe', detail: '<strong>Profiling Probe</strong><br/>IP Helper forwards copy of DHCP Request to PSN. ISE analyzes Option 55/60 to classify device.'},
+      {from: 'dhcp-br', to: 'dhcp-dc', type: 'dhcp', dash: true, label: 'DHCP Sync', detail: 'Scope Failover Sync', isWan: true},
 
       // DNS
-      {from: 'psn1', to: 'ad', color: 'var(--c-dns)', type: 'dns', dash: true, curve: -30, label: 'DNS Query (53)', detail: '<strong>Resolution</strong><br/>ISE resolves FQDNs for external ID stores and endpoints.'},
-      {from: 'psn2', to: 'ad', color: 'var(--c-dns)', type: 'dns', dash: true, curve: -30, label: 'DNS Query (53)', detail: 'Resolution'},
-      {from: 'psn3', to: 'ad-br', color: 'var(--c-dns)', type: 'dns', dash: true, curve: -20, label: 'DNS Query (53)', detail: '<strong>Local Resolution</strong><br/>Branch PSN resolves local resources via local DNS.'},
-      {from: 'psn3', to: 'ad', color: 'var(--c-dns)', type: 'dns', dash: true, label: 'DNS Fallback', detail: '<strong>WAN Resolution</strong><br/>If local DNS fails, resolve via HQ.', isWan: true},
-      {from: 'pc', to: 'ad-br', color: 'var(--c-dns)', type: 'dns', dash: true, curve: 80, label: 'Endpoint DNS', detail: 'Endpoint resolution'}
+      {from: 'psn1', to: 'ad', type: 'dns', dash: true, curve: -30, label: 'DNS Query (53)', detail: '<strong>Resolution</strong><br/>ISE resolves FQDNs for external ID stores and endpoints.'},
+      {from: 'psn2', to: 'ad', type: 'dns', dash: true, curve: -30, label: 'DNS Query (53)', detail: 'Resolution'},
+      {from: 'psn3', to: 'ad-br', type: 'dns', dash: true, curve: -20, label: 'DNS Query (53)', detail: '<strong>Local Resolution</strong><br/>Branch PSN resolves local resources via local DNS.'},
+      {from: 'psn3', to: 'ad', type: 'dns', dash: true, label: 'DNS Fallback', detail: '<strong>WAN Resolution</strong><br/>If local DNS fails, resolve via HQ.', isWan: true},
+      {from: 'pc', to: 'ad-br', type: 'dns', dash: true, curve: 80, label: 'Endpoint DNS', detail: 'Endpoint resolution'}
   ],
   documentation: {
       psn: {
