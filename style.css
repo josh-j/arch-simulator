@@ -104,6 +104,32 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  cursor: pointer; /* Make it clickable */
+}
+
+.section-title:hover {
+    color: var(--text-main);
+}
+
+.toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.panel-content {
+    transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+    max-height: 500px; /* Arbitrary large height */
+    opacity: 1;
+    overflow: hidden;
+}
+
+.panel-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+}
+
+.section-title.collapsed .toggle-icon {
+    transform: rotate(-90deg);
 }
 
 /* Simulation Buttons */

@@ -25,7 +25,7 @@ export class ArchitectureSimulator {
             inspector: document.getElementById('inspector'),
             packet: document.getElementById('packet'),
             simButtons: document.getElementById('simButtons'),
-            layerFilters: document.getElementById('layerFilters'),
+            layerFilters: document.getElementById('layerFiltersPanel'),
             nodeSearch: document.getElementById('nodeSearch'),
             inspContent: document.getElementById('insp-content'),
             inspTitle: document.getElementById('insp-title'),
@@ -69,9 +69,14 @@ export class ArchitectureSimulator {
         const coreLayers = this.config.layers.filter(l => !l.group);
         const infraLayers = this.config.layers.filter(l => l.group === 'infra');
 
-        let html = `<div class="section-title"><span><i class="fas fa-layer-group"></i> Core Layers</span></div>
-                    <div class="filter-grid" style="margin-bottom: 15px;">
-                        <button class="filter-btn active" id="resetLayers" style="grid-column: span 2; justify-content: center; font-weight:bold; border-color: white;">Reset Layers</button>`;
+        let html = `
+            <div class="section-title" data-target="layerFiltersContent">
+                <span><i class="fas fa-layer-group"></i> Core Layers</span>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="panel-content" id="layerFiltersContent">
+                <div class="filter-grid" style="margin-bottom: 15px;">
+                    <button class="filter-btn active" id="resetLayers" style="grid-column: span 2; justify-content: center; font-weight:bold; border-color: white;">Reset Layers</button>`;
         
         html += coreLayers.map(l => `
             <button class="filter-btn active" data-layer="${l.id}">
@@ -81,7 +86,7 @@ export class ArchitectureSimulator {
         html += `</div>`;
 
         if (infraLayers.length > 0) {
-            html += `<div class="section-title"><span><i class="fas fa-server"></i> Infrastructure Layers</span></div>
+            html += `<div class="section-title" style="margin-top: 15px; font-size: 0.65rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;"><span><i class="fas fa-server"></i> Infrastructure Layers</span></div>
                      <div class="filter-grid">`;
             html += infraLayers.map(l => `
                 <button class="filter-btn active" data-layer="${l.id}">
@@ -90,6 +95,8 @@ export class ArchitectureSimulator {
             `).join('');
             html += `</div>`;
         }
+        
+        html += `</div>`; // Close panel-content
 
         this.els.layerFilters.innerHTML = html;
 
@@ -102,6 +109,22 @@ export class ArchitectureSimulator {
                     this.toggleLayer(btn.dataset.layer, btn);
                 }
             });
+        });
+
+        // Bind Toggle Events
+        document.querySelectorAll('.section-title').forEach(title => {
+            // Avoid double binding if called multiple times, though init is called once
+            // Check if it has a target data attribute
+            if (title.dataset.target) {
+                title.addEventListener('click', () => {
+                    const targetId = title.dataset.target;
+                    const content = document.getElementById(targetId);
+                    if (content) {
+                        content.classList.toggle('collapsed');
+                        title.classList.toggle('collapsed');
+                    }
+                });
+            }
         });
 
         // Search
