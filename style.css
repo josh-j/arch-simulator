@@ -1,0 +1,555 @@
+:root {
+  /* Base Theme - Will be overridden by JS if config provides them */
+  --bg-dark: #0f172a;
+  --bg-panel: rgba(15, 23, 42, 0.95);
+  --text-main: #f8fafc;
+  --text-mute: #94a3b8;
+  --border-light: rgba(255, 255, 255, 0.15);
+  --accent-glow: rgba(59, 130, 246, 0.6);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+}
+
+/* --- UI Overlay Layer --- */
+.ui-layer {
+  position: fixed;
+  z-index: 1000;
+  padding: 20px;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.panel {
+  pointer-events: auto;
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+/* Left Control Stack */
+.left-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 400px;
+  max-height: 95vh;
+}
+
+.header-panel {
+  padding: 20px;
+  border-left: 4px solid var(--c-radius);
+}
+
+.search-box {
+  margin-top: 15px;
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-light);
+  padding: 8px 35px 8px 12px;
+  border-radius: 4px;
+  color: white;
+  font-family: inherit;
+}
+
+.search-input:focus {
+  outline: 1px solid var(--c-radius);
+}
+
+.search-icon {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  color: var(--text-mute);
+  font-size: 0.8rem;
+}
+
+.controls-panel {
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.section-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Simulation Buttons */
+.sim-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #bfdbfe;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.sim-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateX(5px);
+}
+
+.sim-btn i {
+  color: var(--c-radius);
+}
+
+/* Filter Grid */
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  color: var(--text-mute);
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* Inspector (Right Slide-out) */
+#inspector {
+  pointer-events: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 480px;
+  background: #0f172a;
+  border-left: 1px solid var(--border-light);
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 50px rgba(0, 0, 0, 0.6);
+}
+
+#inspector.open {
+  transform: translateX(0);
+}
+
+.insp-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(30, 41, 59, 0.5);
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.insp-body {
+  padding: 25px;
+  overflow-y: auto;
+  flex: 1;
+  scroll-behavior: smooth;
+}
+
+.tech-block {
+  margin-bottom: 25px;
+  animation: fadeIn 0.3s ease;
+}
+
+.tech-title {
+  color: var(--c-radius);
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  padding-bottom: 5px;
+}
+
+.tech-content {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.tech-content strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.tech-list {
+  margin: 10px 0 10px 15px;
+  list-style-type: none;
+}
+
+.tech-list li {
+  margin-bottom: 8px;
+  position: relative;
+  padding-left: 15px;
+}
+
+.tech-list li::before {
+  content: "›";
+  position: absolute;
+  left: 0;
+  color: var(--c-radius);
+  font-weight: bold;
+}
+
+.warn-box {
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid var(--c-ad);
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.85rem;
+  color: #fcd34d;
+}
+
+/* --- Canvas Layer --- */
+#wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  z-index: 1;
+  background: var(--bg-dark);
+}
+
+#wrapper:active {
+  cursor: grabbing;
+}
+
+#canvas {
+  position: absolute;
+  width: 6000px;
+  height: 4000px;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform-origin: 0 0;
+}
+
+svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* The Visible Line */
+.conn-line {
+  fill: none;
+  stroke-width: 3;
+  transition: stroke-width 0.2s, opacity 0.3s, filter 0.2s;
+  pointer-events: none;
+}
+
+/* The Interaction Hitbox (Invisible but thick) */
+.conn-hitbox {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 25px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Hover States */
+.conn-line.hovered {
+  stroke-width: 6 !important;
+  filter: drop-shadow(0 0 8px currentColor);
+  z-index: 999;
+  opacity: 1 !important;
+}
+
+.conn-line.hidden,
+.conn-hitbox.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.conn-line.dimmed {
+  opacity: 0.1;
+}
+
+.conn-line.active-flow {
+  stroke-width: 4;
+  stroke-dasharray: 10, 5;
+  animation: dashFlow 0.5s linear infinite;
+  opacity: 1 !important;
+}
+
+/* Packet Animation */
+.packet {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 15px 5px var(--c-radius);
+  z-index: 9999;
+  pointer-events: none;
+  display: none;
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Nodes */
+.node {
+  position: absolute;
+  width: 240px;
+  background: #1e293b;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+  cursor: grab;
+  z-index: 10;
+}
+
+.node:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.node:active {
+  cursor: grabbing;
+}
+
+.node.dimmed {
+  opacity: 0.15;
+  filter: grayscale(0.8);
+}
+
+.node.highlighted {
+  box-shadow: 0 0 50px rgba(59, 130, 246, 0.4);
+  border-color: #fff;
+  z-index: 100;
+  transform: scale(1.05);
+}
+
+.node-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.node-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #000;
+}
+
+.node-body {
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  color: var(--text-mute);
+}
+
+/* Node Types - Specific to Cisco ISE Theme */
+.node.pan .node-header {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.node.pan .node-icon {
+  background: var(--c-admin);
+}
+
+.node.psn .node-header {
+  background: rgba(59, 130, 246, 0.1);
+  color: #93c5fd;
+}
+
+.node.psn .node-icon {
+  background: var(--c-radius);
+}
+
+.node.mnt .node-header {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+}
+
+.node.mnt .node-icon {
+  background: var(--c-logs);
+}
+
+.node.infra {
+  border-style: dashed;
+}
+
+.node.infra .node-icon {
+  background: var(--text-mute);
+  color: #0f172a;
+}
+
+.node.endpoint {
+  border-left: 3px solid var(--c-radius);
+}
+
+.node.endpoint .node-icon {
+  background: white;
+  color: var(--c-radius);
+}
+
+/* Site Labels */
+.site-group {
+  position: absolute;
+  border: 2px dashed rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.site-group.dimmed {
+  opacity: 0.05;
+}
+
+.site-label {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Tooltip */
+.tooltip {
+  position: fixed;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid var(--c-radius);
+  padding: 15px;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 9999;
+  max-width: 350px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tooltip.visible {
+  opacity: 1;
+}
+
+.tooltip h4 {
+  color: var(--c-radius);
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 5px;
+}
+
+.tooltip p {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+/* Tags */
+.tag {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin-top: 4px;
+    font-size: 0.7rem;
+}
+.tag.crit {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}

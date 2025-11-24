@@ -1,0 +1,217 @@
+
+export const ciscoIseConfig = {
+  meta: {
+    title: "Cisco ISE Architecture – Deep Dive",
+    subtitle: "Distributed Architecture v3.3",
+    version: "3.3"
+  },
+  theme: {
+    colors: {
+      "bg-dark": "#0f172a",
+      "bg-panel": "rgba(15, 23, 42, 0.95)",
+      "text-main": "#f8fafc",
+      "text-mute": "#94a3b8",
+      "border-light": "rgba(255, 255, 255, 0.15)",
+      "accent-glow": "rgba(59, 130, 246, 0.6)",
+      
+      // Functional Colors
+      "c-admin": "#ef4444",   // Red - Admin/Replication
+      "c-radius": "#3b82f6",  // Blue - RADIUS
+      "c-tacacs": "#6366f1",  // Indigo - TACACS+
+      "c-logs": "#10b981",    // Green - Logs
+      "c-mesh": "#06b6d4",    // Cyan - LDD/Mesh
+      "c-wan": "#a855f7",     // Purple - WAN
+      
+      // Infrastructure
+      "c-ad": "#f97316",      // Orange - Active Directory
+      "c-pki": "#ec4899",     // Pink - PKI/Certificates
+      "c-dhcp": "#8b5cf6",    // Violet - DHCP
+      "c-dns": "#84cc16"      // Lime - DNS
+    }
+  },
+  layers: [
+    { id: "radius", label: "RADIUS", color: "var(--c-radius)", active: true },
+    { id: "tacacs", label: "TACACS+", color: "var(--c-tacacs)", active: true },
+    { id: "admin", label: "Admin", color: "var(--c-admin)", active: true },
+    { id: "logs", label: "Logs", color: "var(--c-logs)", active: true },
+    { id: "mesh", label: "LDD", color: "var(--c-mesh)", active: true },
+    { id: "wan", label: "WAN", color: "var(--c-wan)", active: true },
+    { id: "ad", label: "AD/Identity", color: "var(--c-ad)", active: true, group: "infra" },
+    { id: "pki", label: "PKI/Certs", color: "var(--c-pki)", active: true, group: "infra" },
+    { id: "dhcp", label: "DHCP", color: "var(--c-dhcp)", active: true, group: "infra" },
+    { id: "dns", label: "DNS", color: "var(--c-dns)", active: true, group: "infra" }
+  ],
+  simulations: [
+    { id: "eap", label: "EAP-TLS Auth (HQ)", icon: "fas fa-play-circle", nodes: ["pc", "sw-br", "psn3", "ad-br", "psn3", "sw-br"] },
+    { id: "tacacs", label: "TACACS+ Admin (Device Mgmt)", icon: "fas fa-terminal", nodes: ["sw-br", "psn3", "ad-br", "psn3", "sw-br"] },
+    { id: "profiling", label: "Device Profiling (DHCP)", icon: "fas fa-search", nodes: ["phone-mab", "sw-br", "dhcp-br", "psn3", "sw-br"] },
+    { id: "logging", label: "Secure Logging (WAN)", icon: "fas fa-file-alt", nodes: ["psn3", "mnt1"] }
+  ],
+  sites: [
+    { id: "site-hq", label: "Main Data Center (HQ)", x: 100, y: 100, w: 1600, h: 1400 },
+    { id: "site-br", label: "Remote Branch (WAN 500km)", x: 1900, y: 100, w: 1400, h: 1800 }
+  ],
+  nodes: [
+    // HQ Nodes
+    { id: "pan1", type: "pan", label: "Primary PAN", sub: "Admin & Config Master", tag: "TCP 12001", tagClass: "crit", icon: "P", x: 600, y: 200 },
+    { id: "pan2", type: "pan", label: "Secondary PAN", sub: "Admin Standby", tag: "DB Replica", icon: "S", x: 1000, y: 200 },
+    { id: "mnt1", type: "mnt", label: "Primary MnT", sub: "Log Processor", tag: "Syslog 20514", icon: "M", x: 600, y: 450 },
+    { id: "mnt2", type: "mnt", label: "Secondary MnT", sub: "Log Standby", tag: "Replica", icon: "M2", x: 1000, y: 450 },
+    { id: "psn1", type: "psn", label: "PSN-HQ-01", sub: "Runtime Engine", tag: "RADIUS/TACACS", icon: "S1", x: 600, y: 800 },
+    { id: "psn2", type: "psn", label: "PSN-HQ-02", sub: "Runtime Engine", tag: "RADIUS/TACACS", icon: "S2", x: 1000, y: 800 },
+    
+    // HQ Infra
+    { id: "ad", type: "infra", label: "Active Directory", sub: "Identity Store (HQ)", tag: "Kerberos/LDAP", icon: "AD", iconColor: "var(--c-ad)", x: 200, y: 750 },
+    { id: "ca", type: "infra", label: "Internal CA", sub: "PKI Authority", tag: "CRL/OCSP", icon: "fas fa-certificate", iconColor: "var(--c-pki)", x: 200, y: 300 },
+    { id: "dhcp-dc", type: "infra", label: "DHCP HQ", sub: "IP Mgmt", tag: "Helper", icon: "D", iconColor: "var(--c-dhcp)", x: 400, y: 1200 },
+
+    // Branch Nodes
+    { id: "psn3", type: "psn", label: "PSN-Branch", sub: "Local Runtime", tag: "Survivable", tagClass: "crit", icon: "S3", x: 2100, y: 600 },
+    { id: "ad-br", type: "infra", label: "Branch DC", sub: "Local Identity", tag: "Low Latency", icon: "DC", iconColor: "var(--c-ad)", x: 2700, y: 600 },
+    { id: "sw-br", type: "infra", label: "Branch Switch", sub: "Authenticator", tag: "802.1X/MAB", icon: "fas fa-sitemap", iconBg: "#475569", x: 2400, y: 1000 },
+    { id: "dhcp-br", type: "infra", label: "Branch DHCP", sub: "Local Scopes", tag: "Relay", icon: "D", iconColor: "var(--c-dhcp)", x: 2700, y: 350 },
+
+    // Endpoints
+    { id: "pc", type: "endpoint", label: "Laptop", sub: "<strong>EAP-TLS</strong><br />Supplicant", icon: "fas fa-laptop", x: 2100, y: 1400 },
+    { id: "phone-mab", type: "endpoint", label: "Legacy Phone", sub: "<strong>MAB</strong><br />Profiling", icon: "fas fa-phone", x: 2400, y: 1400 }
+  ],
+  connections: [
+      // Admin Plane
+      {from: 'pan1', to: 'pan2', color: 'var(--c-admin)', type: 'admin', label: 'Replication (TCP 12001)', detail: '<strong>JGroups & Oracle Data Guard</strong><br/>Synchronizes policy configuration and database changes. Latency sensitivity: Medium.'},
+      {from: 'pan1', to: 'psn1', color: 'var(--c-admin)', type: 'admin', label: 'Config Push', detail: '<strong>Policy Distribution</strong><br/>Incremental updates pushed to Runtime nodes. <br/><em>Risk:</em> Slow WAN links can cause "Out of Sync" states.'},
+      {from: 'pan1', to: 'psn2', color: 'var(--c-admin)', type: 'admin', label: 'Config Push', detail: 'Incremental config updates'},
+      {from: 'pan1', to: 'psn3', color: 'var(--c-admin)', type: 'admin', label: 'WAN Config Push', detail: '<strong>Remote Replication</strong><br/>Policy updates sent over WAN to Branch PSN. <br/><em>Port:</em> TCP 12001.', isWan: true, dash: true},
+      {from: 'pan1', to: 'mnt1', color: 'var(--c-admin)', type: 'admin', label: 'Admin Sync', detail: 'Syncs admin configuration structure'},
+      {from: 'pan1', to: 'mnt2', color: 'var(--c-admin)', type: 'admin', label: 'Admin Sync', detail: 'Syncs admin configuration to Secondary MnT'},
+      {from: 'mnt1', to: 'mnt2', color: 'var(--c-admin)', type: 'admin', label: 'Log Rep (TCP 1521)', detail: '<strong>Database Replication</strong><br/>Primary MnT replicates operational data to Secondary. Failover is manual.'},
+
+      // Log Plane
+      {from: 'psn1', to: 'mnt1', color: 'var(--c-logs)', type: 'logs', label: 'Secure Syslog (8671)', detail: '<strong>ISE Messaging Service</strong><br/>RabbitMQ (TLS) ensures reliable log delivery with buffering during WAN outages.'},
+      {from: 'psn2', to: 'mnt1', color: 'var(--c-logs)', type: 'logs', label: 'Secure Syslog (8671)', detail: 'Secure Syslog via ISE Messaging Service'},
+      {from: 'psn3', to: 'mnt1', color: 'var(--c-logs)', type: 'logs', label: 'WAN Logs (8671)', detail: '<strong>WAN Logging</strong><br/>Uses compression and buffering. Vital for troubleshooting branch auth failures.', isWan: true, dash: true},
+
+      // Radius Plane
+      {from: 'sw-br', to: 'psn3', color: 'var(--c-radius)', type: 'radius', label: 'RADIUS (UDP 1812)', detail: '<strong>Access-Request</strong><br/>Contains User-Name, NAS-IP, Called-Station-ID. <br/><em>Timeout:</em> Typically 5 seconds.'},
+      {from: 'psn3', to: 'sw-br', color: 'var(--c-radius)', type: 'radius', label: 'CoA (UDP 1700)', dash: true, curve: -40, detail: '<strong>Change of Authorization</strong><br/>RFC 5176. Forces switch to re-auth port or bounce link after profiling update.'},
+
+      // TACACS+ Plane
+      {from: 'sw-br', to: 'psn3', color: 'var(--c-tacacs)', type: 'tacacs', curve: 60, label: 'TACACS+ (TCP 49)', detail: '<strong>Device Administration</strong><br/>Encrypted TCP session for Authentication, Authorization, and Accounting (AAA) of network admins.'},
+      {from: 'sw-br', to: 'psn1', color: 'var(--c-tacacs)', type: 'tacacs', dash: true, label: 'TACACS+ Failover', detail: '<strong>Central Fallback</strong><br/>If branch PSN fails, device admin falls back to HQ.', isWan: true},
+
+      // Endpoint Connections
+      {from: 'pc', to: 'sw-br', color: '#fff', type: 'radius', label: 'EAPOL', detail: '<strong>EAP over LAN</strong><br/>Layer 2 encapsulation of EAP frames between PC and Switch.'},
+      {from: 'phone-mab', to: 'sw-br', color: '#fff', type: 'radius', label: 'CDP/MAB', detail: '<strong>MAB</strong><br/>Switch learns MAC via CDP/LLDP and sends RADIUS Access-Request with MAC as username.'},
+
+      // Infrastructure Split
+      // AD/Identity
+      {from: 'psn1', to: 'ad', color: 'var(--c-ad)', type: 'ad', label: 'Kerberos (88)', detail: '<strong>Identity Lookup</strong><br/>Validates passwords and retrieves Group SIDs. <br/><em>Critical:</em> >1 sec latency here causes massive thread blocking.'},
+      {from: 'psn2', to: 'ad', color: 'var(--c-ad)', type: 'ad', label: 'Kerberos (88)', detail: 'Identity Lookup'},
+      {from: 'psn3', to: 'ad-br', color: 'var(--c-ad)', type: 'ad', label: 'Local AD (88)', detail: '<strong>Local Auth</strong><br/>Keeps auth traffic off the WAN. Essential for survivability.'},
+      {from: 'psn3', to: 'ad', color: 'var(--c-ad)', type: 'ad', dash: true, label: 'AD Fallback', detail: '<strong>WAN Fallback</strong><br/>Used if local DC is dead. High latency risk.', isWan: true},
+      {from: 'ad', to: 'ad-br', color: 'var(--c-ad)', type: 'ad', dash: true, label: 'AD Replication', detail: '<strong>Directory Sync</strong><br/>Infrastructure replication between HQ and Branch Domain Controllers.', isWan: true},
+
+      // PKI
+      {from: 'psn1', to: 'ca', color: 'var(--c-pki)', type: 'pki', dash: true, label: 'OCSP (80)', detail: '<strong>Revocation Check</strong><br/>Verifies client certificate is not revoked. Fail-close behavior is common.'},
+      {from: 'psn3', to: 'ca', color: 'var(--c-pki)', type: 'pki', dash: true, label: 'WAN OCSP', detail: 'Remote Revocation Check', isWan: true},
+
+      // Mesh / LDD
+      {from: 'psn1', to: 'psn2', color: 'var(--c-mesh)', type: 'mesh', dash: true, label: 'LDD (8671)', detail: '<strong>Session Replication</strong><br/>Allows PSN 2 to handle CoA for PSN 1 sessions if needed.'},
+      {from: 'psn2', to: 'psn3', color: 'var(--c-mesh)', type: 'mesh', dash: true, label: 'LDD WAN', detail: 'Cross-site Session Info', isWan: true},
+
+      // DHCP
+      {from: 'sw-br', to: 'dhcp-br', color: 'var(--c-dhcp)', type: 'dhcp', dash: true, label: 'DHCP Helper', detail: 'Standard DHCP Relay'},
+      {from: 'sw-br', to: 'psn3', color: 'var(--c-dhcp)', type: 'dhcp', dash: true, curve: 40, label: 'DHCP Probe', detail: '<strong>Profiling Probe</strong><br/>IP Helper forwards copy of DHCP Request to PSN. ISE analyzes Option 55/60 to classify device.'},
+      {from: 'dhcp-br', to: 'dhcp-dc', color: 'var(--c-dhcp)', type: 'dhcp', dash: true, label: 'DHCP Sync', detail: 'Scope Failover Sync', isWan: true},
+
+      // DNS
+      {from: 'psn1', to: 'ad', color: 'var(--c-dns)', type: 'dns', dash: true, curve: -30, label: 'DNS Query (53)', detail: '<strong>Resolution</strong><br/>ISE resolves FQDNs for external ID stores and endpoints.'},
+      {from: 'psn2', to: 'ad', color: 'var(--c-dns)', type: 'dns', dash: true, curve: -30, label: 'DNS Query (53)', detail: 'Resolution'},
+      {from: 'psn3', to: 'ad-br', color: 'var(--c-dns)', type: 'dns', dash: true, curve: -20, label: 'DNS Query (53)', detail: '<strong>Local Resolution</strong><br/>Branch PSN resolves local resources via local DNS.'},
+      {from: 'psn3', to: 'ad', color: 'var(--c-dns)', type: 'dns', dash: true, label: 'DNS Fallback', detail: '<strong>WAN Resolution</strong><br/>If local DNS fails, resolve via HQ.', isWan: true},
+      {from: 'pc', to: 'ad-br', color: 'var(--c-dns)', type: 'dns', dash: true, curve: 80, label: 'Endpoint DNS', detail: 'Endpoint resolution'}
+  ],
+  documentation: {
+      psn: {
+        role: 'Policy Service Node (Runtime)',
+        blocks: [
+          {
+            title: 'Thread Architecture',
+            content: `The PSN uses a complex staged thread model to handle high-throughput authentication:
+                        <ul class="tech-list">
+                            <li><strong>Main Pool:</strong> Handles packet I/O and protocol parsing.</li>
+                            <li><strong>Session Manager:</strong> Manages state machine for multi-round EAP exchanges.</li>
+                            <li><strong>AD-Connector Pool:</strong> Specialized blocking threads for synchronous Active Directory lookups. High latency here is the #1 cause of auth drops.</li>
+                            <li><strong>Prism/JGroups:</strong> Manages "Light Data Distribution" (LDD) to replicate session state to other PSNs via TCP 8671.</li>
+                        </ul>`
+          },
+          {
+            title: 'Why Distributed?',
+            content: `PSNs are placed close to the Network Access Devices (Switches/WLCs) to minimize RADIUS latency. 
+                        <div class="warn-box"><i class="fas fa-exclamation-triangle"></i> RADIUS (UDP) is sensitive to latency >300ms. Drops result in re-transmissions and "Access-Reject" on timeout.</div>`
+          }
+        ]
+      },
+      pan: {
+        role: 'Policy Administration Node',
+        blocks: [
+          {
+            title: 'Replication Engine',
+            content: `The PAN acts as the single source of truth. It uses two replication streams:
+                        <ul class="tech-list">
+                            <li><strong>Config DB:</strong> Replicated via JGroups (TCP 12001). Contains policies, network device definitions, and admin settings.</li>
+                            <li><strong>MnT Sync:</strong> Pushes config to MnT nodes to ensure reporting structure matches policy.</li>
+                        </ul>`
+          },
+          {
+            title: 'Root CA Role',
+            content: `The Primary PAN (usually) hosts the Root CA. It issues the <strong>Node Certificates</strong> for all other nodes and signs the <strong>OCSP Responses</strong>. If the PAN is down, certificate revocation checks may fail depending on caching.`
+          }
+        ]
+      },
+      mnt: {
+        role: 'Monitoring & Troubleshooting Node',
+        blocks: [
+          {
+            title: 'Log Processing Pipeline',
+            content: `MnT nodes ingest huge volumes of data.
+                        <ul class="tech-list">
+                            <li><strong>Collector:</strong> Listens on UDP 20514 and TCP 6514. Buffers incoming raw logs.</li>
+                            <li><strong>Processor:</strong> Parses raw logs into structured database entries.</li>
+                            <li><strong>ISE Messaging Service:</strong> A RabbitMQ-based queue (TCP 8671) that guarantees log delivery even if the MnT database is temporarily locking.</li>
+                        </ul>`
+          },
+          {
+            title: 'Database & Purging',
+            content: `MnT uses an Oracle database. Aggressive purging policies are required to prevent disk saturation. By default, detailed logs are kept for 7 days and summary data for 30 days.`
+          }
+        ]
+      },
+      infra: {
+        role: 'External Infrastructure',
+        blocks: [
+          {
+            title: 'Critical Dependency',
+            content: `ISE is not an island. It relies heavily on external truth sources.
+                        <ul class="tech-list">
+                            <li><strong>Active Directory:</strong> Used for Identity and Group membership. Latency to the DC directly adds to Authentication time.</li>
+                            <li><strong>DNS:</strong> ISE relies on forward and reverse lookups for profiling and node-to-node comms.</li>
+                            <li><strong>NTP:</strong> Time sync (< 5 min skew) is mandatory for Kerberos and TLS.</li>
+                        </ul>`
+          }
+        ]
+      },
+      endpoint: {
+        role: 'End User Device',
+        blocks: [
+          {
+            title: 'The Supplicant',
+            content: `The native OS software (or AnyConnect) that speaks 802.1X.
+                        <ul class="tech-list">
+                            <li><strong>EAP-TLS:</strong> Uses Client Certificate. Highest security.</li>
+                            <li><strong>PEAP-MSCHAPv2:</strong> Uses User/Pass. Subject to credential theft if server cert isn't validated.</li>
+                        </ul>`
+          }
+        ]
+      }
+  }
+};

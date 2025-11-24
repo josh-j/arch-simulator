@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Architecture Simulator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Dynamic Elements -->
+  <div id="packet" class="packet"></div>
+  <div id="lineTooltip" class="tooltip">
+    <h4 id="ttTitle">Protocol</h4>
+    <div id="ttBody">Details</div>
+  </div>
+
+  <div class="ui-layer">
+    <div class="left-stack">
+      <!-- Header -->
+      <div class="panel header-panel">
+        <h2 style="font-weight:800; letter-spacing:-0.5px;">Cisco ISE <span style="color:var(--c-radius)">Deep Dive</span></h2>
+        <div style="font-size: 0.8rem; color: var(--text-mute); margin-top: 5px;">Distributed Architecture v3.3</div>
+        <div class="search-box">
+          <input type="text" id="nodeSearch" class="search-input" placeholder="Search components...">
+          <i class="fas fa-search search-icon"></i>
+        </div>
+      </div>
+
+      <!-- Simulations -->
+      <div class="panel controls-panel">
+        <div class="section-title">
+          <span><i class="fas fa-play-circle"></i> Flow Simulators</span>
+        </div>
+        <div id="simButtons">
+            <!-- Injected by Engine -->
+        </div>
+      </div>
+
+      <!-- Layer Controls -->
+      <div class="panel controls-panel" id="layerFilters">
+          <!-- Injected by Engine -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Inspector -->
+  <div id="inspector">
+    <div class="insp-header">
+      <div>
+        <div id="insp-title" style="font-size: 1.2rem; font-weight: 800; color: white;">Component</div>
+        <div id="insp-role" style="font-size: 0.85rem; color: var(--c-radius); font-weight: 600;">Role Description</div>
+      </div>
+      <button id="closeInspector" style="background:none; border:none; color:var(--text-mute); cursor:pointer; padding:5px;">
+          <i class="fas fa-times fa-lg"></i>
+      </button>
+    </div>
+    <div id="insp-content" class="insp-body">
+      <!-- Content Injected via JS -->
+      <div style="text-align:center; margin-top:50%; transform: translateY(-50%); color: var(--text-mute);">
+        <i class="fas fa-project-diagram fa-3x" style="margin-bottom:20px; opacity:0.3;"></i><br />
+        Select a node to view technical architecture.<br />
+        Select a flow to visualize traffic.
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="wrapper">
+    <div id="canvas">
+      <svg id="svgLayer"></svg>
+      <!-- Nodes and Sites Injected by Engine -->
+    </div>
+  </div>
+
+  <script type="module">
+    import { ciscoIseConfig } from './cisco_ise.js';
+    import { ArchitectureSimulator } from './engine.js';
+
+    // Initialize
+    const app = new ArchitectureSimulator(ciscoIseConfig);
+  </script>
+</body>
+</html>
