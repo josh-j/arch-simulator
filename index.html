@@ -6,6 +6,8 @@
   <title>Interactive Architecture Simulator</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="style.css" />
+  <!-- Add JS-YAML library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
 </head>
 <body>
 
@@ -75,11 +77,23 @@
   </div>
 
   <script type="module">
-    import { ciscoIseConfig } from './cisco_ise.js';
     import { ArchitectureSimulator } from './engine.js';
 
-    // Initialize
-    const app = new ArchitectureSimulator(ciscoIseConfig);
+    async function loadConfig() {
+      try {
+        const response = await fetch('cisco_ise.yaml');
+        const yamlText = await response.text();
+        const config = jsyaml.load(yamlText);
+        
+        // Initialize
+        const app = new ArchitectureSimulator(config);
+      } catch (e) {
+        console.error("Failed to load configuration:", e);
+        alert("Error loading configuration file. Check console for details.");
+      }
+    }
+
+    loadConfig();
   </script>
 </body>
 </html>
