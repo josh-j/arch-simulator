@@ -1,0 +1,265 @@
+nodeTypes:
+  pan:
+    icon: P
+    iconBg: var(--c-admin)
+    headerBg: rgba(239, 68, 68, 0.1)
+    headerColor: "#fca5a5"
+  mnt:
+    icon: M
+    iconBg: var(--c-logs)
+    headerBg: rgba(16, 185, 129, 0.1)
+    headerColor: "#6ee7b7"
+  psn:
+    icon: S
+    iconBg: var(--c-radius)
+    headerBg: rgba(59, 130, 246, 0.1)
+    headerColor: "#93c5fd"
+  ad:
+    iconBg: var(--c-ad)
+    style: dashed
+  dhcp:
+    iconBg: var(--c-dhcp)
+    style: dashed
+  ca:
+    iconBg: var(--c-pki)
+    style: dashed
+  infra:
+    iconBg: var(--text-mute)
+    style: dashed
+  endpoint:
+    iconBg: white
+    iconColor: var(--c-radius)
+    style: border-left
+  nad:
+    iconBg: "#475569"
+    style: dashed
+  phone:
+    iconBg: white
+    iconColor: var(--c-radius)
+    style: border-left
+
+protocols:
+  # Core Layers
+  - id: radius
+    label: RADIUS
+    color: var(--c-radius)
+    active: true
+    detail: AAA over UDP 1812/1813 with CoA on 1700; DTLS optional for encryption
+  - id: tacacs
+    label: TACACS+
+    color: var(--c-tacacs)
+    active: true
+    detail: Device administration over TCP 49 (AAA split, per-command accounting)
+  - id: admin-signal
+    label: JGroups
+    color: var(--c-admin)
+    active: true
+    detail: Config change signaling on TCP 12001 (PAN to nodes, <300 ms latency target)
+  - id: admin-sync
+    label: Oracle Data Guard
+    color: "#f59e0b"
+    active: true
+    detail: Database replication on TCP 1521 (TLS) between PANs and MnTs
+  - id: logs
+    label: Syslog
+    color: var(--c-logs)
+    active: true
+    detail: Secure syslog delivery to MnT (20514/6514) buffered via ISE Messaging (8671)
+  - id: mesh
+    label: RabbitMQ
+    color: var(--c-mesh)
+    active: true
+    detail: LDD session/profiling mesh on TCP 8671 (TLS, RabbitMQ-backed)
+
+  # Infra Layers
+  - id: wan
+    label: WAN Transport
+    color: var(--c-wan)
+    active: true
+    group: infra
+    detail: WAN links and dashed paths indicating higher latency
+  - id: ad
+    label: AD/Identity
+    color: var(--c-ad)
+    active: true
+    group: infra
+    detail: Kerberos/LDAP/GC lookups to domain controllers; LDAPS for authn
+  - id: pki
+    label: PKI/Certs
+    color: var(--c-pki)
+    active: true
+    group: infra
+    detail: OCSP/CRL checks for certificate revocation; branch uses WAN OCSP if local cache misses
+  - id: dhcp
+    label: DHCP
+    color: var(--c-dhcp)
+    active: true
+    group: infra
+    detail: DHCP relay and profiling copies (helper to PSN, Option 55/60 inspection)
+  - id: dns
+    label: DNS
+    color: var(--c-dns)
+    active: true
+    group: infra
+    detail: DNS queries on port 53; branch uses local first then WAN fallback
+
+sites:
+  - id: site-hq
+    label: Headquarters
+    x: 50
+    y: 50
+    w: 1100
+    h: 1300
+  - id: site-br
+    label: Remote Branch
+    x: 1250
+    y: 50
+    w: 1100
+    h: 1300
+
+nodes:
+  # ============================================
+  # HEADQUARTERS (Grid Layout)
+  # ============================================
+  # Row 1: Admin Plane (y=200)
+  - id: pan1
+    type: pan
+    label: Primary PAN
+    sub: Admin & Config Master (HA active)
+    tag: TCP 12001 / 1521
+    tagClass: crit
+    x: 250
+    y: 200
+  - id: pan2
+    type: pan
+    label: Secondary PAN
+    sub: Admin Standby (read-only)
+    tag: DB Replica 1521
+    icon: S
+    x: 650
+    y: 200
+
+  # Row 2: Log Plane (y=500)
+  - id: mnt1
+    type: mnt
+    label: Primary MnT
+    sub: Log Processor / Collector
+    tag: Syslog 20514/6514
+    x: 250
+    y: 500
+  - id: mnt2
+    type: mnt
+    label: Secondary MnT
+    sub: Log Standby (HA)
+    tag: Replica 1521
+    icon: M2
+    x: 650
+    y: 500
+
+  # Row 3: Runtime Plane (y=800)
+  - id: psn1
+    type: psn
+    label: PSN-HQ-01
+    sub: Runtime Engine (AAA, profiling)
+    tag: RADIUS/TACACS/LDD
+    icon: S1
+    x: 250
+    y: 800
+  - id: psn2
+    type: psn
+    label: PSN-HQ-02
+    sub: Runtime Engine (AAA, profiling)
+    tag: RADIUS/TACACS/LDD
+    icon: S2
+    x: 650
+    y: 800
+
+  # Row 4: Infrastructure (y=1100)
+  - id: ad
+    type: ad
+    label: Active Directory
+    sub: Identity Store (HQ)
+    tag: Kerberos/LDAPS
+    icon: AD
+    iconBg: var(--c-ad)
+    x: 150
+    y: 1100
+  - id: ca
+    type: ca
+    label: Internal CA
+    sub: PKI Authority
+    tag: CRL/OCSP
+    icon: fas fa-certificate
+    iconBg: var(--c-pki)
+    x: 450
+    y: 1100
+  - id: dhcp-dc
+    type: dhcp
+    label: DHCP HQ
+    sub: IP Mgmt
+    tag: Helper / Probe
+    icon: D
+    iconBg: var(--c-dhcp)
+    x: 750
+    y: 1100
+
+  # ============================================
+  # REMOTE BRANCH (Tree Layout)
+  # ============================================
+  # Level 1: Edge / WAN Entry (y=500 - Matches HQ Middle)
+  - id: psn3
+    type: psn
+    label: PSN-Branch
+    sub: Local Runtime
+    tag: Survivable
+    tagClass: crit
+    icon: S3
+    x: 1650
+    y: 200
+
+  # Level 2: Local Infra (y=800)
+  - id: ad-br
+    type: ad
+    label: Branch DC
+    sub: Local Identity
+    tag: Low Latency
+    icon: DC
+    iconBg: var(--c-ad)
+    x: 1450
+    y: 500
+  - id: dhcp-br
+    type: dhcp
+    label: Branch DHCP
+    sub: Local Scopes
+    tag: Relay
+    icon: D
+    iconBg: var(--c-dhcp)
+    x: 1850
+    y: 500
+
+  # Level 3: Access Layer (y=1000)
+  - id: sw-br
+    type: nad
+    label: Branch Switch
+    sub: Authenticator
+    tag: 802.1X/MAB
+    icon: fas fa-sitemap
+    iconBg: "#475569"
+    x: 1650
+    y: 800
+
+  # Level 4: Endpoints (y=1200)
+  - id: pc
+    type: endpoint
+    label: Laptop
+    sub: "<strong>EAP-TLS</strong><br />Supplicant"
+    icon: fas fa-laptop
+    x: 1500
+    y: 1100
+  - id: phone-mab
+    type: phone
+    label: Legacy Phone
+    sub: "<strong>MAB</strong><br />Profiling"
+    icon: fas fa-phone
+    x: 1800
+    y: 1100

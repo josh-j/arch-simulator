@@ -1,0 +1,247 @@
+documentation:
+  psn:
+    role: Policy Service Node (Runtime)
+    blocks:
+      - title: The "Brain" of the Operation
+        content: |
+          The PSN is the runtime factory line for AAA:
+          <ul class="tech-list">
+            <li><strong>Station 1 (I/O):</strong> <code>prrt-server</code> accepts packets and checks Message-Authenticator.</li>
+            <li><strong>Station 2 (Decisions):</strong> Policy & Session Manager runs EAP state machine and policy set evaluation.</li>
+            <li><strong>Station 3 (External Data):</strong> <code>Reactor/ADIDStore</code> calls AD/identity sources. <em style="color:#fca5a5">(Bottleneck—slow AD stalls the line.)</em></li>
+            <li><strong>Station 4 (Response):</strong> <code>EapTls</code> handles TLS crypto; response = Accept/Reject/Challenge.</li>
+          </ul>
+      - title: Thread Architecture & Blocking
+        content: |
+          ISE is multi-threaded but external lookups are synchronous. If a DC takes >1s, Reactor threads pile up and new RADIUS hits 5405/5413 drops even with low CPU.
+      - title: Session Survivability (LDD)
+        content: |
+          <ul class="tech-list">
+            <li><strong>LDD/RSD/EPOD:</strong> Replicates session ownership and profiling attributes over RabbitMQ TLS (8671). Keep PSNs in node groups.</li>
+            <li><strong>Stickiness Required:</strong> Load balancers must keep Calling-Station-ID affinity to avoid "EAP packet from middle of conversation."</li>
+            <li><strong>CoA Handling:</strong> Admin-triggered CoA signals the session-owning PSN internally before North-South CoA on UDP 1700/3799.</li>
+          </ul>
+  pan:
+    role: Policy Administration Node
+    blocks:
+      - title: The "Single Source of Truth"
+        content: |
+          Only the Primary PAN is writable; it pushes config everywhere:
+          <ul class="tech-list">
+            <li><strong>Config DB (JGroups 12001):</strong> Policy sets, NADs, certs—latency >300 ms risks out-of-sync nodes.</li>
+            <li><strong>Data Guard (1521):</strong> Oracle replication to standby PAN and MnTs keeps reporting history aligned.</li>
+          </ul>
+      - title: Secondary PAN (Standby)
+        content: |
+          <ul class="tech-list">
+            <li><strong>Read-Only Persona:</strong> Secondary PAN is not writable; promote only after primary failure and health-check.</li>
+            <li><strong>Replication:</strong> Receives config/certs on TCP 12001/1521; WAN latency >300 ms can stall sync.</li>
+            <li><strong>Services:</strong> Admin UI/OCSP remain, but writes are blocked until promotion.</li>
+          </ul>
+      - title: Certificate Authority (CA)
+        content: |
+          The PAN often hosts the internal Root CA:
+          <ol style="margin-left: 20px; margin-bottom: 10px;">
+            <li><strong>Nodes:</strong> Issues node certs so PSNs/MnTs trust each other.</li>
+            <li><strong>Endpoints:</strong> Optionally issues onboarding certs.</li>
+          </ol>
+          OCSP/CRL checks may fail during PAN outage if responses are not cached.
+  mnt:
+    role: Monitoring & Troubleshooting Node
+    blocks:
+      - title: The "Black Box" Recorder
+        content: |
+          MnT captures every authentication:
+          <ul class="tech-list">
+            <li><strong>Collector (Ear):</strong> UDP 20514 / TCP 6514; buffers raw logs.</li>
+            <li><strong>Processor (Brain):</strong> Writes structured events to Oracle DB.</li>
+          </ul>
+      - title: Reliability (ISE Messaging)
+        content: |
+          <div class="warn-box"><i class="fas fa-shield-alt"></i> <strong>TCP 8671</strong></div>
+          Secure Syslog via RabbitMQ buffers ~2.5 hours on PSN if MnT is offline.
+      - title: Troubleshooting Tip
+        content: |
+          If Live Logs are empty but auths succeed, check MnT Collector and firewalls on 8671/6514.
+      - title: Secondary MnT (HA)
+        content: |
+          <ul class="tech-list">
+            <li><strong>Role:</strong> Hot standby; also ingests logs so failover preserves continuity.</li>
+            <li><strong>Sync Path:</strong> Data Guard (1521) replicates operational/reporting DB from primary MnT.</li>
+            <li><strong>Logging:</strong> PSNs should target both MnTs; Messaging Service queues if one path fails.</li>
+          </ul>
+  infra:
+    role: External Infrastructure
+    blocks:
+      - title: "No Island is an Island"
+        content: |
+          ISE brokers trust using external systems:
+          <ul class="tech-list">
+            <li><strong>Active Directory:</strong> Identity source; latency is the enemy.</li>
+            <li><strong>DNS:</strong> Forward/reverse for profiling and node comms.</li>
+            <li><strong>NTP:</strong> Kerberos and TLS require &lt;5 minute skew.</li>
+            <li><strong>PKI/DHCP:</strong> OCSP/CRL availability matters; DHCP helpers feed profiling copies (Option 55/60).</li>
+          </ul>
+      - title: PKI / CA Considerations
+        content: |
+          <ul class="tech-list">
+            <li><strong>OCSP/CRL:</strong> PSNs must reach CA/OCSP for EAP-TLS; cache helps but expires quickly.</li>
+            <li><strong>Certificates:</strong> Use EAP Authentication–role cert on PSN; trust chain must be in PAN/PSN stores.</li>
+            <li><strong>Secure Transport:</strong> DTLS for RADIUS if mandated; MACsec/IPsec for wired/WAN paths.</li>
+          </ul>
+  ca:
+    role: Internal Certificate Authority
+    blocks:
+      - title: CA Services
+        content: |
+          <ul class="tech-list">
+            <li><strong>Node Certs:</strong> Issues PAN/PSN/MnT certificates; keep CRL/OCSP reachable over WAN for branches.</li>
+            <li><strong>OCSP/CRL:</strong> Short-lived responses; outages can block EAP-TLS unless cached.</li>
+            <li><strong>Trust Stores:</strong> Ensure PAN/PSN include the full chain and mark trusted for client auth/syslog.</li>
+          </ul>
+      - title: Resiliency
+        content: |
+          <ul class="tech-list">
+            <li><strong>Replication:</strong> PAN replicates certs/keys over TCP 12001/1521 to other nodes.</li>
+            <li><strong>Latency Budget:</strong> Keep OCSP fetch within a few hundred ms to avoid auth timeouts.</li>
+            <li><strong>Fallback:</strong> Configure CRL as backup for OCSP during maintenance.</li>
+          </ul>
+  ad:
+    role: Active Directory / Identity Store
+    blocks:
+      - title: Identity Source
+        content: |
+          <ul class="tech-list">
+            <li><strong>Protocols:</strong> Kerberos/LDAP/GC; prefer LDAPS with valid PKI.</li>
+            <li><strong>Latency:</strong> Each lookup adds to auth time; target &lt;300 ms round-trip.</li>
+            <li><strong>Health:</strong> DNS/NTP alignment is mandatory; failed DCs surface as 5405/5413 drops.</li>
+          </ul>
+      - title: Identity Stores & Selection
+        content: |
+          <ul class="tech-list">
+            <li><strong>Store Priority:</strong> Order AD stores in policy sets; include machine + user auth where needed.</li>
+            <li><strong>Redundancy:</strong> Define multiple DCs per AD join point; site-local first with WAN fallback.</li>
+            <li><strong>Group Fetch:</strong> Ensure required AD groups are imported; missing groups break authZ matches.</li>
+          </ul>
+      - title: AD Lookups
+        content: |
+          <ul class="tech-list">
+            <li><strong>Query Types:</strong> Kerberos/LDAP for auth; Global Catalog for group membership; LDAPS preferred.</li>
+            <li><strong>Ports:</strong> 88/389/636 on local DC; WAN fallback requires same ports open HQ↔Branch.</li>
+            <li><strong>Error Cues:</strong> Slow or failed lookups surface as 5405/5413; check DNS/NTP and DC reachability.</li>
+          </ul>
+      - title: Replication & Fallback
+        content: |
+          <ul class="tech-list">
+            <li><strong>Site-Local First:</strong> PSNs hit local DCs before WAN.</li>
+            <li><strong>WAN Fallback:</strong> Keep ports 88/389/636 open HQ↔Branch; cache is limited.</li>
+            <li><strong>Join Hygiene:</strong> Forward/reverse DNS must exist for every PSN/PAN/MnT.</li>
+          </ul>
+  dhcp:
+    role: DHCP / Profiling Source
+    blocks:
+      - title: Helper & Profiling
+        content: |
+          <ul class="tech-list">
+            <li><strong>Relay:</strong> DHCP helpers forward requests to scopes and copy to PSN for profiling.</li>
+            <li><strong>Options:</strong> Enable Option 55/60 inspection to improve fingerprinting.</li>
+            <li><strong>Reliability:</strong> Keep helper targets reachable on both local and WAN paths.</li>
+          </ul>
+      - title: DHCP Snooping
+        content: |
+          Enable on access switches to protect scopes and feed profiling:
+          <pre style="font-size:0.7rem; margin-top:10px; overflow-x:auto;"><code>ip dhcp snooping
+          ip dhcp snooping vlan 20
+          ip dhcp snooping verify mac-address
+          ip dhcp snooping information option allow-untrusted
+          interface GigabitEthernet1/0/10
+           ip dhcp snooping trust
+          !
+          interface Vlan20
+           ip helper-address 10.0.0.50  ! PSN copy for profiling
+           ip helper-address 10.0.0.60  ! DHCP server</code></pre>
+  nad:
+    role: Network Access Device (Switch/WLC)
+    blocks:
+      - title: Access Layer Role
+        content: |
+          <ul class="tech-list">
+            <li><strong>Authenticator:</strong> Enforces 802.1X/MAB and forwards RADIUS/TACACS to PSN.</li>
+            <li><strong>Policy Enforcement:</strong> Applies VLAN/DACL/SGT from ISE authZ results.</li>
+            <li><strong>Profiling Assist:</strong> DHCP snooping/helpers feed Option 55/60 to PSN for device ID.</li>
+          </ul>
+      - title: Switch Config (Reference)
+        content: |
+          <details style="cursor:pointer; background:rgba(255,255,255,0.05); padding:10px; border-radius:4px;">
+            <summary style="font-weight:bold; color:var(--c-radius);">Click to view IOS-XE AAA Config</summary>
+            <pre style="font-size:0.7rem; margin-top:10px; overflow-x:auto;"><code>          aaa new-model
+          ! Define Servers
+          radius server ise-hq
+           address ipv4 10.0.0.11 auth-port 1812 acct-port 1813
+           key radiusSecret
+          !
+          tacacs server ise-tacacs
+           address ipv4 10.0.0.11
+           key tacacsSecret
+          !
+          aaa group server radius ISE-RADIUS
+           server name ise-hq
+           ip radius source-interface Vlan10
+          !
+          aaa group server tacacs+ ISE-TACACS
+           server name ise-tacacs
+           ip tacacs source-interface Vlan10
+          !
+          aaa authentication dot1x default group ISE-RADIUS
+          aaa authorization network default group ISE-RADIUS
+          aaa accounting update periodic 5
+          aaa accounting dot1x default start-stop group ISE-RADIUS
+          aaa authentication login VTY group ISE-TACACS local
+          aaa authorization exec VTY group ISE-TACACS local if-authenticated
+          dot1x system-auth-control</code></pre>
+            <pre style="font-size:0.7rem; margin-top:10px; overflow-x:auto;"><code>          interface GigabitEthernet1/0/10
+           switchport mode access
+           switchport access vlan 20
+           authentication order mab dot1x
+           authentication priority dot1x mab
+           authentication port-control auto
+           mab
+           dot1x pae authenticator
+           spanning-tree portfast
+           ip access-group PREAUTH in
+          ! optional SGT/DACL/SGACL from authorization profile</code></pre>
+          </details>
+  endpoint:
+    role: End User Device (Supplicant)
+    blocks:
+      - title: The "Chicken and Egg" Problem
+        content: |
+          How does a PC get a cert if it needs one to connect?
+          <ul class="tech-list">
+            <li><strong>MAB (Profiling):</strong> Place on limited VLAN based on MAC.</li>
+            <li><strong>Onboarding:</strong> Redirect to ISE portal to install cert.</li>
+            <li><strong>CoA:</strong> Re-auth with EAP-TLS after provisioning.</li>
+          </ul>
+      - title: EAP-TLS (Mutual Trust)
+        content: |
+          <ul class="tech-list">
+            <li><strong>Server Trust:</strong> Supplicant validates ISE cert chain.</li>
+            <li><strong>Client Trust:</strong> ISE validates client cert/CRL/OCSP.</li>
+          </ul>
+  phone:
+    role: Legacy Phone (MAB/Profiling)
+    blocks:
+      - title: MAB Flow
+        content: |
+          <ul class="tech-list">
+            <li><strong>Identity:</strong> Authenticates via MAC (MAB) to PSN; no 802.1X supplicant on most VoIP sets.</li>
+            <li><strong>Profiling:</strong> OUI + CDP/LLDP (voice capability), DHCP Options 55/60/150 used to ID as phone.</li>
+            <li><strong>Authorization:</strong> Voice VLAN assignment, QoS/DSCP/ACL via authorization profile.</li>
+          </ul>
+      - title: Reliability Tips
+        content: |
+          <ul class="tech-list">
+            <li><strong>DHCP Snooping:</strong> Keep helpers copying to PSN so profiling stays accurate.</li>
+            <li><strong>CoA Behavior:</strong> CoA (1700) required to change VLAN or apply ACLs after profiling.</li>
+            <li><strong>Stickiness:</strong> Use NAD/PSN affinity to avoid mid-session state errors; keep CDP/LLDP enabled on access ports.</li>
+          </ul>

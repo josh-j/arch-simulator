@@ -1,106 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="google" content="notranslate" />
-  <title>Interactive Architecture Simulator</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="stylesheet" href="style.css" />
-  <!-- Add JS-YAML library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cisco ISE Architecture – Deep Dive</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 </head>
 <body>
-
-  <!-- Dynamic Elements -->
-  <div id="packet" class="packet"></div>
-  <div id="lineTooltip" class="tooltip">
-    <h4 id="ttTitle">Protocol</h4>
-    <div id="ttBody">Details</div>
+  <div id="wrapper">
+    <div id="canvas">
+      <svg id="svgLayer"></svg>
+      <div id="packet"></div>
+      <div id="lineTooltip"></div>
+    </div>
   </div>
 
   <div class="ui-layer">
     <div class="left-stack">
-      <!-- Header -->
       <div class="panel header-panel">
-        <h2 style="font-weight:800; letter-spacing:-0.5px;">Cisco ISE <span style="color:var(--c-radius)">Deep Dive</span></h2>
-        <div style="font-size: 0.8rem; color: var(--text-mute); margin-top: 5px;">Distributed Architecture v3.3</div>
+        <div class="header-top">
+          <div>
+            <div class="logo-title">
+              Cisco ISE <span class="accent">Deep Dive</span>
+            </div>
+            <div class="logo-subtitle created-by">Created by Joshua Johnson</div>
+            <div class="mini-legend">
+              <span class="legend-item">
+                <span class="legend-line solid"></span> Standard link
+              </span>
+              <span class="legend-item">
+                <span class="legend-line dashed"></span> WAN / high latency
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel controls-panel">
+        <div class="section-title">
+          <span><i class="fas fa-search"></i> Find Node</span>
+        </div>
         <div class="search-box">
-          <input type="text" id="nodeSearch" class="search-input" placeholder="Search components...">
+          <input id="nodeSearch" class="search-input" type="text" placeholder="Search node..." />
           <i class="fas fa-search search-icon"></i>
         </div>
-      </div>
 
-      <!-- Simulations -->
-      <div class="panel controls-panel">
-        <div class="section-title" data-target="simButtons">
-          <span><i class="fas fa-play-circle"></i> Flow Simulators</span>
-          <i class="fas fa-chevron-down toggle-icon"></i>
+        <div style="margin-top: 15px;">
+          <div class="section-title" data-target="simButtons">
+            <span><i class="fas fa-project-diagram"></i> Simulations</span>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+          </div>
+          <div class="panel-content" id="simButtons"></div>
         </div>
-        <div class="panel-content" id="simButtons">
-            <!-- Injected by Engine -->
-        </div>
-      </div>
 
-      <!-- Layer Controls -->
-      <div class="panel controls-panel" id="layerFiltersPanel">
-          <!-- Injected by Engine -->
-      </div>
-
-      <!-- Credits -->
-      <div class="panel" style="padding: 12px; margin-top: 5px; font-size: 0.75rem; color: var(--text-mute); text-align: center;">
-        Created by <a href="https://joshej.dev" target="_blank" style="color: var(--c-radius); text-decoration: none; font-weight: 600;">Joshua Johnson</a>
+        <div style="margin-top: 15px;" id="layerFiltersPanel"></div>
       </div>
     </div>
   </div>
 
-  <!-- Right Inspector -->
   <div id="inspector">
     <div class="insp-header">
       <div>
-        <div id="insp-title" style="font-size: 1.2rem; font-weight: 800; color: white;">Component</div>
-        <div id="insp-role" style="font-size: 0.85rem; color: var(--c-radius); font-weight: 600;">Role Description</div>
+        <div id="insp-title">Node</div>
+        <div id="insp-role" class="muted"></div>
       </div>
-      <button id="closeInspector" style="background:none; border:none; color:var(--text-mute); cursor:pointer; padding:5px;">
-          <i class="fas fa-times fa-lg"></i>
+      <button id="closeInspector" class="close-btn" aria-label="Close Inspector">
+        <i class="fas fa-times"></i>
       </button>
     </div>
-    <div id="insp-content" class="insp-body">
-      <!-- Content Injected via JS -->
-      <div style="text-align:center; margin-top:50%; transform: translateY(-50%); color: var(--text-mute);">
-        <i class="fas fa-project-diagram fa-3x" style="margin-bottom:20px; opacity:0.3;"></i><br />
-        Select a node to view technical architecture.<br />
-        Select a flow to visualize traffic.
-      </div>
-    </div>
-  </div>
-
-  <!-- Canvas -->
-  <div id="wrapper">
-    <div id="canvas">
-      <svg id="svgLayer"></svg>
-      <!-- Nodes and Sites Injected by Engine -->
+    <div class="insp-body">
+      <div id="insp-content"></div>
     </div>
   </div>
 
   <script type="module">
-    import { ArchitectureSimulator } from './engine.js';
+    import { ArchitectureSimulator } from "./engine.js";
 
     async function loadConfig() {
       try {
-        const response = await fetch('cisco_ise.yaml');
-        const yamlText = await response.text();
-        const config = jsyaml.load(yamlText);
-        
-        // Initialize
-        const app = new ArchitectureSimulator(config);
+        const files = [
+          "config.meta.yaml",
+          "config.topology.yaml",
+          "config.connections.yaml",
+          "config.simulations.yaml",
+          "config.docs.yaml",
+        ];
+
+        const texts = await Promise.all(
+          files.map((file) =>
+            fetch(file).then((res) => {
+              if (!res.ok) throw new Error(`Failed to load ${file}`);
+              return res.text();
+            }),
+          ),
+        );
+
+        const config = texts.reduce((acc, yamlText) => {
+          const part = jsyaml.load(yamlText);
+          return { ...acc, ...part };
+        }, {});
+
+        // Update title/subtitle from config
+        if (config.meta) {
+          const t = document.getElementById("title");
+          const s = document.getElementById("subtitle");
+          if (t && config.meta.title) t.textContent = config.meta.title;
+          if (s && config.meta.subtitle) s.textContent = config.meta.subtitle;
+        }
+
+        new ArchitectureSimulator(config);
       } catch (e) {
-        console.error("Failed to load configuration:", e);
-        alert("Error loading configuration file. Check console for details.");
+        console.error("Critical Error:", e);
+        alert("Failed to load configuration files. See console.");
       }
     }
 
-    loadConfig();
+    window.addEventListener("DOMContentLoaded", loadConfig);
   </script>
 </body>
 </html>

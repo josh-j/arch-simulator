@@ -1,508 +1,722 @@
-
 export class ArchitectureSimulator {
-    constructor(config) {
-        this.config = config;
-        this.state = {
-            scale: 0.55,
-            pX: -100,
-            pY: -50,
-            isDraggingCanvas: false,
-            isDraggingNode: false,
-            activeNode: null,
-            dragStartX: 0,
-            dragStartY: 0,
-            nodeStartX: 0,
-            nodeStartY: 0,
-            simulationActive: false,
-            activeLayers: new Set(config.layers.filter(l => l.active).map(l => l.id))
-        };
+	// =========================================================================
+	// 1. SETUP & INITIALIZATION
+	// =========================================================================
+	constructor(config) {
+		this.config = config;
 
-        this.els = {
-            wrapper: document.getElementById('wrapper'),
-            canvas: document.getElementById('canvas'),
-            svg: document.getElementById('svgLayer'),
-            tooltip: document.getElementById('lineTooltip'),
-            inspector: document.getElementById('inspector'),
-            packet: document.getElementById('packet'),
-            simButtons: document.getElementById('simButtons'),
-            layerFilters: document.getElementById('layerFiltersPanel'),
-            nodeSearch: document.getElementById('nodeSearch'),
-            inspContent: document.getElementById('insp-content'),
-            inspTitle: document.getElementById('insp-title'),
-            inspRole: document.getElementById('insp-role')
-        };
+		// State Container
+		this.state = {
+			scale: 0.6,
+			pX: -50,
+			pY: -50,
+			isDraggingCanvas: false,
+			isDraggingNode: false,
+			activeNode: null,
+			dragStartX: 0,
+			dragStartY: 0,
+			nodeStartX: 0,
+			nodeStartY: 0,
+			simulationActive: false,
+			found: false,
+			activeLayers: new Set(
+				(config.protocols || []).filter((l) => l.active).map((l) => l.id),
+			),
+		};
 
-        this.init();
-    }
+		// DOM Element Cache
+		this.els = {
+			wrapper: document.getElementById("wrapper"),
+			canvas: document.getElementById("canvas"),
+			svg: document.getElementById("svgLayer"),
+			tooltip: document.getElementById("lineTooltip"),
+			inspector: document.getElementById("inspector"),
+			packet: document.getElementById("packet"),
+			simButtons: document.getElementById("simButtons"),
+			layerFilters: document.getElementById("layerFiltersPanel"),
+			nodeSearch: document.getElementById("nodeSearch"),
+			inspContent: document.getElementById("insp-content"),
+			inspTitle: document.getElementById("insp-title"),
+			inspRole: document.getElementById("insp-role"),
+		};
 
-    init() {
-        this.applyTheme();
-        this.renderUI();
-        this.renderCanvas();
-        this.renderLines();
-        this.setupInteractions();
-        this.updateTransform();
-    }
+		this.init();
+	}
 
-    applyTheme() {
-        const root = document.documentElement;
-        for (const [key, value] of Object.entries(this.config.theme.colors)) {
-            root.style.setProperty(`--${key}`, value);
-        }
-    }
+	init() {
+		this.applyTheme();
 
-    renderUI() {
-        // Render Simulation Buttons
-        this.els.simButtons.innerHTML = this.config.simulations.map(sim => `
+		// CRITICAL FIX: Ensure math aligns with CSS transforms
+		if (this.els.canvas) {
+			this.els.canvas.style.transformOrigin = "0 0";
+		}
+
+		this.renderUI();
+		this.renderCanvas();
+		this.renderLines();
+		this.setupInteractions();
+		this.updateTransform();
+		this.collapseDefaultPanels();
+	}
+
+	applyTheme() {
+		const root = document.documentElement;
+		if (!this.config.theme?.colors) return;
+		for (const [key, value] of Object.entries(this.config.theme.colors)) {
+			root.style.setProperty(`--${key}`, value);
+		}
+	}
+
+	collapseDefaultPanels() {
+		["simButtons", "layerFiltersContent"].forEach((target) => {
+			const title = document.querySelector(
+				`.section-title[data-target="${target}"]`,
+			);
+			const panel = document.getElementById(target);
+			if (title && panel) {
+				title.classList.add("collapsed");
+				panel.classList.add("collapsed");
+			}
+		});
+	}
+
+	// =========================================================================
+	// 2. UI & SIDEBAR RENDERING
+	// =========================================================================
+	renderUI() {
+		this._renderSimButtons();
+		this._renderLayerFilters();
+		this._bindSearch();
+	}
+
+	_renderSimButtons() {
+		if (!this.els.simButtons) return;
+		this.els.simButtons.innerHTML = this.config.simulations
+			.map(
+				(sim) => `
             <button class="sim-btn" data-sim="${sim.id}">
-                <span><strong>${sim.label.split('(')[0]}</strong> (${sim.label.split('(')[1] || ''}</span> 
+                <span><strong>${sim.label.split("(")[0]}</strong> (${
+					sim.label.split("(")[1] || ""
+				}</span> 
                 <i class="${sim.icon}"></i>
             </button>
-        `).join('');
+        `,
+			)
+			.join("");
 
-        this.els.simButtons.querySelectorAll('.sim-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.runSimulation(btn.dataset.sim));
-        });
+		this.els.simButtons.querySelectorAll(".sim-btn").forEach((btn) => {
+			btn.addEventListener("click", () => this.runSimulation(btn.dataset.sim));
+		});
+	}
 
-        // Render Layer Filters
-        // Group 1: Core Layers (non-infra)
-        const coreLayers = this.config.layers.filter(l => !l.group);
-        const infraLayers = this.config.layers.filter(l => l.group === 'infra');
+	_renderLayerFilters() {
+		const protocols = this.config.protocols || [];
+		const coreLayers = protocols.filter((l) => !l.group);
+		const infraLayers = protocols.filter((l) => l.group === "infra");
 
-        let html = `
+		const buildBtn = (l) => `
+            <button class="filter-btn active" data-layer="${l.id}" title="${l.detail || l.label}">
+                <span class="dot" style="background:${l.color}"></span> ${l.label}
+            </button>`;
+
+		let html = `
             <div class="section-title" data-target="layerFiltersContent">
-                <span><i class="fas fa-layer-group"></i> Core Layers</span>
+                <span><i class="fas fa-layer-group"></i> Core Protocols</span>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="panel-content" id="layerFiltersContent">
                 <div class="filter-grid" style="margin-bottom: 15px;">
-                    <button class="filter-btn active" id="resetLayers" style="grid-column: span 2; justify-content: center; font-weight:bold; border-color: white;">Reset Layers</button>`;
-        
-        html += coreLayers.map(l => `
-            <button class="filter-btn active" data-layer="${l.id}">
-                <span class="dot" style="background:${l.color}"></span> ${l.label}
-            </button>
-        `).join('');
-        html += `</div>`;
+                    ${coreLayers.map(buildBtn).join("")}
+                </div>`;
 
-        if (infraLayers.length > 0) {
-            html += `<div class="section-title" style="margin-top: 15px; font-size: 0.65rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;"><span><i class="fas fa-server"></i> Infrastructure Layers</span></div>
-                     <div class="filter-grid">`;
-            html += infraLayers.map(l => `
-                <button class="filter-btn active" data-layer="${l.id}">
-                    <span class="dot" style="background:${l.color}"></span> ${l.label}
-                </button>
-            `).join('');
-            html += `</div>`;
-        }
-        
-        html += `</div>`; // Close panel-content
+		if (infraLayers.length > 0) {
+			html += `
+                <div class="section-title" style="margin-top: 15px; font-size: 0.65rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
+                    <span><i class="fas fa-server"></i> Infrastructure Protocols</span>
+                </div>
+                <div class="filter-grid">
+                    ${infraLayers.map(buildBtn).join("")}
+                </div>`;
+		}
+		html += `</div>`; // Close panel-content
 
-        this.els.layerFilters.innerHTML = html;
+		if (!this.els.layerFilters) return;
+		this.els.layerFilters.innerHTML = html;
 
-        // Bind Filter Events
-        this.els.layerFilters.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                if (btn.id === 'resetLayers') {
-                    this.resetLayers();
-                } else {
-                    this.toggleLayer(btn.dataset.layer, btn);
-                }
-            });
-        });
+		// Bind Filter Interactions
+		this.els.layerFilters.querySelectorAll(".filter-btn").forEach((btn) => {
+			btn.addEventListener("click", () =>
+				this.toggleLayer(btn.dataset.layer, btn),
+			);
+			btn.addEventListener("mouseenter", () =>
+				this.highlightSingleProtocol(btn.dataset.layer),
+			);
+			btn.addEventListener("mouseleave", () => this.clearHoverProtocols());
+		});
 
-        // Bind Toggle Events
-        document.querySelectorAll('.section-title').forEach(title => {
-            // Avoid double binding if called multiple times, though init is called once
-            // Check if it has a target data attribute
-            if (title.dataset.target) {
-                title.addEventListener('click', () => {
-                    const targetId = title.dataset.target;
-                    const content = document.getElementById(targetId);
-                    if (content) {
-                        content.classList.toggle('collapsed');
-                        title.classList.toggle('collapsed');
-                    }
-                });
-            }
-        });
+		// Bind Accordion Toggles
+		document.querySelectorAll(".section-title").forEach((title) => {
+			if (title.dataset.target) {
+				title.addEventListener("click", () => {
+					const content = document.getElementById(title.dataset.target);
+					if (content) {
+						content.classList.toggle("collapsed");
+						title.classList.toggle("collapsed");
+					}
+				});
+			}
+		});
+	}
 
-        // Search
-        this.els.nodeSearch.addEventListener('keyup', () => this.filterNodes());
-    }
+	_bindSearch() {
+		if (this.els.nodeSearch) {
+			this.els.nodeSearch.addEventListener("keyup", () => this.filterNodes());
+		}
+	}
 
-    renderCanvas() {
-        // Render Sites
-        this.config.sites.forEach(site => {
-            const el = document.createElement('div');
-            el.className = 'site-group';
-            el.id = site.id;
-            el.style.left = `${site.x}px`;
-            el.style.top = `${site.y}px`;
-            el.style.width = `${site.w}px`;
-            el.style.height = `${site.h}px`;
-            el.innerHTML = `<div class="site-label">${site.label}</div>`;
-            this.els.canvas.appendChild(el);
-        });
+	// =========================================================================
+	// 3. CANVAS RENDERING (NODES & LINES)
+	// =========================================================================
+	renderCanvas() {
+		this._renderSites();
+		this._renderNodes();
+	}
 
-        // Render Nodes
-        this.config.nodes.forEach(node => {
-            const el = document.createElement('div');
-            const typeDef = this.config.nodeTypes[node.type] || {};
-            
-            el.className = `node ${node.type}`;
-            el.id = node.id;
-            el.style.left = `${node.x}px`;
-            el.style.top = `${node.y}px`;
-            
-            // Apply type-based styles if defined
-            if (typeDef.style) {
-                if (typeDef.style === 'dashed') el.style.borderStyle = 'dashed';
-                if (typeDef.style === 'border-left') el.style.borderLeft = `3px solid ${typeDef.iconColor || 'var(--c-radius)'}`;
-            }
+	_renderSites() {
+		this.config.sites.forEach((site) => {
+			const el = document.createElement("div");
+			el.className = "site-group";
+			el.id = site.id;
+			Object.assign(el.style, {
+				left: `${site.x}px`,
+				top: `${site.y}px`,
+				width: `${site.w}px`,
+				height: `${site.h}px`,
+			});
+			el.innerHTML = `<div class="site-label">${site.label}</div>`;
+			this.els.canvas.appendChild(el);
+		});
+	}
 
-            // Handle custom icon styling
-            let iconStyle = '';
-            const iconColor = node.iconColor || typeDef.iconColor;
-            const iconBg = node.iconBg || typeDef.iconBg;
-            
-            if (iconColor) iconStyle += `color: ${iconColor}; background: white;`;
-            if (iconBg) iconStyle += `background: ${iconBg}; color: ${iconColor ? iconColor : 'white'};`;
-            if (typeDef.iconBg && !iconBg) iconStyle += `background: ${typeDef.iconBg};`;
+	_renderNodes() {
+		this.config.nodes.forEach((node) => {
+			const typeDef = this.config.nodeTypes[node.type] || {};
+			const el = document.createElement("div");
 
-            // Header styling
-            let headerStyle = '';
-            if (typeDef.headerBg) headerStyle += `background: ${typeDef.headerBg};`;
-            if (typeDef.headerColor) headerStyle += `color: ${typeDef.headerColor};`;
+			el.className = `node ${node.type}`;
+			el.id = node.id;
+			el.style.left = `${node.x}px`;
+			el.style.top = `${node.y}px`;
 
-            // Icon Content
-            const iconVal = node.icon || typeDef.icon || '';
-            const iconContent = iconVal.includes('fa-') ? `<i class="${iconVal}"></i>` : iconVal;
+			// Node Styling Logic
+			if (typeDef.style === "dashed") el.style.borderStyle = "dashed";
+			if (typeDef.style === "border-left")
+				el.style.borderLeft = `3px solid ${typeDef.iconColor || "var(--c-radius)"}`;
 
-            el.innerHTML = `
+			const iconColor = node.iconColor || typeDef.iconColor;
+			const iconBg = node.iconBg || typeDef.iconBg;
+
+			let iconStyle = "";
+			if (iconColor) iconStyle += `color: ${iconColor}; background: white;`;
+			if (iconBg) iconStyle += `background: ${iconBg}; color: ${iconColor || "white"};`;
+			if (typeDef.iconBg && !iconBg) iconStyle += `background: ${typeDef.iconBg};`;
+
+			let headerStyle = "";
+			if (typeDef.headerBg) headerStyle += `background: ${typeDef.headerBg};`;
+			if (typeDef.headerColor) headerStyle += `color: ${typeDef.headerColor};`;
+
+			const iconVal = node.icon || typeDef.icon || "";
+			const iconContent = iconVal.includes("fa-")
+				? `<i class="${iconVal}"></i>`
+				: iconVal;
+
+			el.innerHTML = `
                 <div class="node-header" style="${headerStyle}">
                     <div class="node-icon" style="${iconStyle}">${iconContent}</div> ${node.label}
                 </div>
                 <div class="node-body">
                     ${node.sub}<br />
-                    ${node.tag ? `<span class="tag ${node.tagClass || ''}">${node.tag}</span>` : ''}
+                    ${node.tag ? `<span class="tag ${node.tagClass || ""}">${node.tag}</span>` : ""}
                 </div>
             `;
-            this.els.canvas.appendChild(el);
-        });
-    }
+			this.els.canvas.appendChild(el);
+		});
+	}
 
-    renderLines() {
-        // Define Markers
-        let defs = `<defs>`;
-        
-        this.config.layers.forEach(layer => {
-             defs += `
-              <marker id="m-${layer.id}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                <path d="M0,0 L0,6 L9,3 z" fill="${layer.color}" />
-              </marker>`;
-        });
-        defs += `</defs>`;
-        this.els.svg.innerHTML = defs;
+	renderLines() {
+		// 1. Define SVG Markers
+		const markers = (this.config.protocols || [])
+			.map(
+				(l) => `
+            <marker id="m-${l.id}" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L6,3 L0,6 z" fill="${l.color}" />
+            </marker>
+        `,
+			)
+			.join("");
+		this.els.svg.innerHTML = `<defs>${markers}</defs>`;
 
-        // Render Connections
-        this.config.connections.forEach((conn, i) => {
-            const n1 = document.getElementById(conn.from);
-            const n2 = document.getElementById(conn.to);
-            if (!n1 || !n2) return;
+		// 2. Calculate Grouping for Curves
+		const pairMap = new Map();
+		this.config.connections.forEach((conn) => {
+			const key = [conn.from, conn.to].sort().join("|");
+			if (!pairMap.has(key)) pairMap.set(key, []);
+			pairMap.get(key).push(conn);
+		});
 
-            // Infer color from layer definition if not explicit
-            const layerDef = this.config.layers.find(l => l.id === conn.type);
-            const color = conn.color || (layerDef ? layerDef.color : '#fff');
+		// 3. Draw Lines
+		this.config.connections.forEach((conn, i) => {
+			const n1 = document.getElementById(conn.from);
+			const n2 = document.getElementById(conn.to);
+			if (!n1 || !n2) return;
 
-            const p1 = this.getNodeCenter(n1);
-            const p2 = this.getNodeCenter(n2);
+			const layerDef = (this.config.protocols || []).find(
+				(l) => l.id === conn.type,
+			);
+			const color = conn.color || (layerDef ? layerDef.color : "#fff");
 
-            const isHoriz = Math.abs(p1.x - p2.x) > Math.abs(p1.y - p2.y);
-            const curve = conn.curve || 0;
-            const cp1 = isHoriz ? {x: p1.x + (p2.x - p1.x) / 2, y: p1.y + curve} : {x: p1.x + curve, y: p1.y + (p2.y - p1.y) / 2};
-            const cp2 = isHoriz ? {x: p1.x + (p2.x - p1.x) / 2, y: p2.y + curve} : {x: p2.x + curve, y: p1.y + (p2.y - p1.y) / 2};
+			// Calculate geometry
+			const c1 = this.getNodeCenter(n1);
+			const c2 = this.getNodeCenter(n2);
+			const p1 = this.getNodeEdgePoint(n1, c2);
+			const p2 = this.getNodeEdgePoint(n2, c1);
 
-            const d = `M ${p1.x} ${p1.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
+			let curve = conn.curve || 0;
+			// Auto-offset if multiple lines exist between nodes
+			const group = pairMap.get([conn.from, conn.to].sort().join("|")) || [];
+			if (!conn.curve && group.length > 1) {
+				const idx = group.indexOf(conn);
+				curve = (idx - (group.length - 1) / 2) * 20;
+			}
 
-            // Visual Path
-            const pathVis = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            pathVis.setAttribute('d', d);
-            pathVis.setAttribute('stroke', color);
-            
-            let classes = `conn-line layer-${conn.type}`;
-            if (conn.isWan) classes += ' layer-wan';
-            
-            pathVis.setAttribute('class', classes);
-            pathVis.setAttribute('id', `path-vis-${i}`);
-            pathVis.setAttribute('data-from', conn.from);
-            pathVis.setAttribute('data-to', conn.to);
+			// Bezier Control Points
+			const isHoriz = Math.abs(p1.x - p2.x) > Math.abs(p1.y - p2.y);
+			const cp1 = isHoriz
+				? { x: p1.x + (p2.x - p1.x) / 2, y: p1.y + curve }
+				: { x: p1.x + curve, y: p1.y + (p2.y - p1.y) / 2 };
+			const cp2 = isHoriz
+				? { x: p1.x + (p2.x - p1.x) / 2, y: p2.y + curve }
+				: { x: p2.x + curve, y: p1.y + (p2.y - p1.y) / 2 };
 
-            if (conn.dash) pathVis.setAttribute('stroke-dasharray', '8,4');
-            pathVis.setAttribute('marker-end', `url(#m-${conn.type})`);
+			const d = `M ${p1.x} ${p1.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
+			const connId = `conn-${i}`;
 
-            // Hitbox Path
-            const pathHit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            pathHit.setAttribute('d', d);
-            let hitClasses = `conn-hitbox layer-${conn.type}`;
-            if (conn.isWan) hitClasses += ' layer-wan';
-            pathHit.setAttribute('class', hitClasses);
+			// Create Visual Path
+			const pathVis = document.createElementNS(
+				"http://www.w3.org/2000/svg",
+				"path",
+			);
+			let classes = `conn-line layer-${conn.type}`;
+			if (conn.isWan) classes += " layer-wan";
 
-            // Events
-            // Pass the resolved color to the inspector
-            const connWithColor = { ...conn, color: color };
-            pathHit.addEventListener('click', (e) => { e.stopPropagation(); this.inspectConn(connWithColor); });
-            pathHit.addEventListener('mouseenter', (e) => {
-                pathVis.classList.add('hovered');
-                this.showTooltip(e, connWithColor);
-            });
-            pathHit.addEventListener('mouseleave', () => {
-                pathVis.classList.remove('hovered');
-                this.els.tooltip.classList.remove('visible');
-            });
+			this._setAttrs(pathVis, {
+				d,
+				stroke: color,
+				class: classes,
+				id: `path-vis-${i}`,
+				"data-from": conn.from,
+				"data-to": conn.to,
+				"data-conn-id": connId,
+				"marker-end": `url(#m-${conn.type})`,
+			});
+			if (conn.dash) pathVis.setAttribute("stroke-dasharray", "8,4");
 
-            this.els.svg.appendChild(pathVis);
-            this.els.svg.appendChild(pathHit);
-        });
-        
-        // Re-apply filters
-        this.applyFilters();
-    }
+			// Create Hitbox Path (Invisible, wider)
+			const pathHit = document.createElementNS(
+				"http://www.w3.org/2000/svg",
+				"path",
+			);
+			let hitClasses = `conn-hitbox layer-${conn.type}`;
+			if (conn.isWan) hitClasses += " layer-wan";
+			this._setAttrs(pathHit, {
+				d,
+				class: hitClasses,
+				"data-conn-id": connId,
+			});
 
-    setupInteractions() {
-        // Drag Canvas
-        this.els.wrapper.addEventListener('mousedown', e => {
-            if (e.target.closest('.node') || e.target.closest('.conn-hitbox')) return;
-            this.state.isDraggingCanvas = true;
-            this.state.dragStartX = e.clientX - this.state.pX;
-            this.state.dragStartY = e.clientY - this.state.pY;
-            this.els.wrapper.style.cursor = 'grabbing';
-        });
+			// Events
+			const connWithColor = { ...conn, color };
+			pathHit.addEventListener("click", (e) => {
+				e.stopPropagation();
+				this.inspectConn(connWithColor);
+			});
+			pathHit.addEventListener("mouseenter", (e) => {
+				pathVis.classList.add("hovered");
+				this.showTooltip(e, connWithColor);
+				this.hideOtherConnections(connId);
+			});
+			pathHit.addEventListener("mouseleave", () => {
+				pathVis.classList.remove("hovered");
+				this.els.tooltip.classList.remove("visible");
+				this.showAllConnections();
+			});
 
-        // Drag Node
-        document.querySelectorAll('.node').forEach(node => {
-            node.addEventListener('mousedown', e => {
-                e.stopPropagation();
-                this.state.isDraggingNode = true;
-                this.state.activeNode = node;
-                this.state.dragStartX = e.clientX;
-                this.state.dragStartY = e.clientY;
-                this.state.nodeStartX = parseInt(node.style.left || 0);
-                this.state.nodeStartY = parseInt(node.style.top || 0);
-                node.style.zIndex = 1000;
-                this.closeInspector();
-            });
+			this.els.svg.appendChild(pathVis);
+			this.els.svg.appendChild(pathHit);
+		});
 
-            node.addEventListener('click', (e) => {
-                if (Math.abs(e.clientX - this.state.dragStartX) < 5) this.inspectNode(node);
-            });
-        });
+		this.applyFilters();
+	}
 
-        window.addEventListener('mousemove', e => {
-            if (this.state.isDraggingCanvas) {
-                this.state.pX = e.clientX - this.state.dragStartX;
-                this.state.pY = e.clientY - this.state.dragStartY;
-                this.updateTransform();
-            } else if (this.state.isDraggingNode && this.state.activeNode) {
-                const dx = (e.clientX - this.state.dragStartX) / this.state.scale;
-                const dy = (e.clientY - this.state.dragStartY) / this.state.scale;
-                this.state.activeNode.style.left = `${this.state.nodeStartX + dx}px`;
-                this.state.activeNode.style.top = `${this.state.nodeStartY + dy}px`;
-                requestAnimationFrame(() => this.renderLines());
-            }
-        });
+	_setAttrs(el, attrs) {
+		for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+	}
 
-        window.addEventListener('mouseup', () => {
-            this.state.isDraggingCanvas = false;
-            this.state.isDraggingNode = false;
-            if (this.state.activeNode) {
-                this.state.activeNode.style.zIndex = '';
-                this.state.activeNode = null;
-            }
-            this.els.wrapper.style.cursor = 'grab';
-        });
+	// =========================================================================
+	// 4. INTERACTION HANDLING (DRAG/ZOOM)
+	// =========================================================================
+	hideOtherConnections(connId) {
+		document.querySelectorAll(".conn-line, .conn-hitbox").forEach((line) => {
+			if (line.dataset.connId === connId) {
+				line.classList.remove("hidden");
+			} else {
+				line.classList.add("hidden");
+			}
+		});
+	}
 
-        this.els.wrapper.addEventListener('wheel', e => {
-            e.preventDefault();
-            this.state.scale = Math.min(Math.max(0.2, this.state.scale - e.deltaY * 0.001), 3);
-            this.updateTransform();
-        });
-        
-        // Close Inspector
-        document.getElementById('closeInspector').addEventListener('click', () => this.closeInspector());
-    }
+	showAllConnections() {
+		document.querySelectorAll(".conn-line, .conn-hitbox").forEach((line) => {
+			line.classList.remove("hidden");
+		});
+		this.applyFilters();
+	}
 
-    updateTransform() {
-        this.els.canvas.style.transform = `translate(${this.state.pX}px, ${this.state.pY}px) scale(${this.state.scale})`;
-    }
+	setupInteractions() {
+		// Canvas Pan
+		if (this.els.wrapper) {
+			this.els.wrapper.addEventListener("mousedown", (e) => {
+				if (e.target.closest(".node") || e.target.closest(".conn-hitbox"))
+					return;
+				this.state.isDraggingCanvas = true;
+				this.state.dragStartX = e.clientX - this.state.pX;
+				this.state.dragStartY = e.clientY - this.state.pY;
+				this.els.wrapper.style.cursor = "grabbing";
+			});
+		}
 
-    getNodeCenter(el) {
-        return {
-            x: parseInt(el.style.left) + el.offsetWidth / 2,
-            y: parseInt(el.style.top) + el.offsetHeight / 2
-        };
-    }
+		// Node Drag
+		document.querySelectorAll(".node").forEach((node) => {
+			node.addEventListener("mousedown", (e) => {
+				e.stopPropagation();
+				this.state.isDraggingNode = true;
+				this.state.activeNode = node;
+				this.state.dragStartX = e.clientX;
+				this.state.dragStartY = e.clientY;
+				this.state.nodeStartX = parseInt(node.style.left || 0);
+				this.state.nodeStartY = parseInt(node.style.top || 0);
+				node.style.zIndex = 1000;
+				this.closeInspector();
+			});
 
-    // --- Logic ---
+			// Click vs Drag detection
+			node.addEventListener("click", (e) => {
+				if (Math.abs(e.clientX - this.state.dragStartX) < 5)
+					this.inspectNode(node);
+			});
+		});
 
-    toggleLayer(layerId, btn) {
-        if (this.state.activeLayers.has(layerId)) {
-            this.state.activeLayers.delete(layerId);
-            btn.classList.remove('active');
-        } else {
-            this.state.activeLayers.add(layerId);
-            btn.classList.add('active');
-        }
-        this.applyFilters();
-    }
+		// Window Mouse Events (Movement/Up)
+		window.addEventListener("mousemove", (e) => {
+			if (this.state.isDraggingCanvas) {
+				this.state.pX = e.clientX - this.state.dragStartX;
+				this.state.pY = e.clientY - this.state.dragStartY;
+				this.updateTransform();
+			} else if (this.state.isDraggingNode && this.state.activeNode) {
+				const dx = (e.clientX - this.state.dragStartX) / this.state.scale;
+				const dy = (e.clientY - this.state.dragStartY) / this.state.scale;
+				this.state.activeNode.style.left = `${this.state.nodeStartX + dx}px`;
+				this.state.activeNode.style.top = `${this.state.nodeStartY + dy}px`;
+				requestAnimationFrame(() => this.renderLines());
+			}
+		});
 
-    resetLayers() {
-        this.state.activeLayers = new Set(this.config.layers.map(l => l.id));
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.add('active'));
-        this.applyFilters();
-    }
+		window.addEventListener("mouseup", () => {
+			this.state.isDraggingCanvas = false;
+			this.state.isDraggingNode = false;
+			if (this.state.activeNode) {
+				this.state.activeNode.style.zIndex = "";
+				this.state.activeNode = null;
+			}
+			if (this.els.wrapper) this.els.wrapper.style.cursor = "grab";
+		});
 
-    applyFilters() {
-        const allLines = document.querySelectorAll('.conn-line, .conn-hitbox');
-        allLines.forEach(line => {
-            const lineLayers = Array.from(line.classList)
-                .filter(c => c.startsWith('layer-'))
-                .map(c => c.replace('layer-', ''));
-            
-            const isVisible = lineLayers.every(layer => this.state.activeLayers.has(layer));
-            if (isVisible) line.classList.remove('hidden');
-            else line.classList.add('hidden');
-        });
-    }
+		// Zoom
+		if (this.els.wrapper) {
+			this.els.wrapper.addEventListener("wheel", (e) => {
+				e.preventDefault();
+				this.state.scale = Math.min(
+					Math.max(0.2, this.state.scale - e.deltaY * 0.001),
+					3,
+				);
+				this.updateTransform();
+			});
+		}
 
-    filterNodes() {
-        const term = this.els.nodeSearch.value.toLowerCase();
-        document.querySelectorAll('.node').forEach(n => {
-            const txt = n.innerText.toLowerCase();
-            if (term.length > 2 && txt.includes(term)) {
-                n.classList.add('highlighted');
-                // Auto pan to first match
-                if (!this.state.found) {
-                    this.state.pX = -parseInt(n.style.left) + window.innerWidth / 2 - 100;
-                    this.state.pY = -parseInt(n.style.top) + window.innerHeight / 2 - 50;
-                    this.updateTransform();
-                    this.state.found = true;
-                }
-            } else n.classList.remove('highlighted');
-        });
-        this.state.found = false;
-    }
+		// UI Interactions
+		const closeBtn = document.getElementById("closeInspector");
+		if (closeBtn) {
+			closeBtn.addEventListener("click", () => this.closeInspector());
+		}
+	}
 
-    // --- Inspector ---
-    inspectNode(nodeEl) {
-        // Find node config
-        const nodeData = this.config.nodes.find(n => n.id === nodeEl.id);
-        if (!nodeData) return;
+	updateTransform() {
+		if (this.els.canvas) {
+			this.els.canvas.style.transform = `translate(${this.state.pX}px, ${this.state.pY}px) scale(${this.state.scale})`;
+		}
+	}
 
-        const doc = this.config.documentation[nodeData.type];
-        if (!doc) return;
+	// =========================================================================
+	// 5. INSPECTION & FILTER LOGIC
+	// =========================================================================
+	toggleLayer(layerId, btn) {
+		if (this.state.activeLayers.has(layerId)) {
+			this.state.activeLayers.delete(layerId);
+			btn.classList.remove("active");
+		} else {
+			this.state.activeLayers.add(layerId);
+			btn.classList.add("active");
+		}
+		this.applyFilters();
+	}
 
-        let html = '';
-        doc.blocks.forEach(b => {
-            html += `<div class="tech-block"><div class="tech-title">${b.title}</div><div class="tech-content">${b.content}</div></div>`;
-        });
+	applyFilters() {
+		const allLines = document.querySelectorAll(".conn-line, .conn-hitbox");
+		allLines.forEach((line) => {
+			// Extract layers from class list "layer-radius", "layer-wan" etc.
+			const lineLayers = Array.from(line.classList)
+				.filter((c) => c.startsWith("layer-"))
+				.map((c) => c.replace("layer-", ""));
 
-        this.els.inspTitle.innerText = nodeData.label;
-        this.els.inspRole.innerText = doc.role;
-        this.els.inspContent.innerHTML = html;
-        this.els.inspector.classList.add('open');
-    }
+			// Show line only if ALL its layers are active
+			const isVisible = lineLayers.every((layer) =>
+				this.state.activeLayers.has(layer),
+			);
+			line.classList.toggle("hidden", !isVisible);
+		});
+	}
 
-    inspectConn(conn) {
-        this.els.inspTitle.innerText = conn.label;
-        this.els.inspRole.innerText = "Connection Detail";
-        this.els.inspContent.innerHTML = `
+	highlightSingleProtocol(layerId) {
+		document.querySelectorAll(".conn-line, .conn-hitbox").forEach((line) => {
+			const lineLayers = Array.from(line.classList)
+				.filter((c) => c.startsWith("layer-"))
+				.map((c) => c.replace("layer-", ""));
+
+			if (lineLayers.includes(layerId)) {
+				line.classList.remove("hidden");
+				line.classList.add("hover-highlight");
+			} else {
+				line.classList.add("hidden");
+				line.classList.remove("hover-highlight");
+			}
+		});
+	}
+
+	clearHoverProtocols() {
+		document.querySelectorAll(".conn-line, .conn-hitbox").forEach((line) => {
+			line.classList.remove("hover-highlight");
+		});
+		this.applyFilters();
+	}
+
+	filterNodes() {
+		const term = this.els.nodeSearch.value.toLowerCase();
+		this.state.found = false;
+
+		document.querySelectorAll(".node").forEach((n) => {
+			const txt = n.innerText.toLowerCase();
+			const match = term.length > 2 && txt.includes(term);
+			n.classList.toggle("highlighted", match);
+
+			if (match && !this.state.found) {
+				// Auto-pan to first result
+				this.state.pX = -parseInt(n.style.left) + window.innerWidth / 2 - 100;
+				this.state.pY = -parseInt(n.style.top) + window.innerHeight / 2 - 50;
+				this.updateTransform();
+				this.state.found = true;
+			}
+		});
+	}
+
+	inspectNode(nodeEl) {
+		const nodeData = this.config.nodes.find((n) => n.id === nodeEl.id);
+		const doc = nodeData ? this.config.documentation[nodeData.type] : null;
+		if (!doc) return;
+
+		const contentHtml = doc.blocks
+			.map(
+				(b) =>
+					`<div class="tech-block">
+                <div class="tech-title">${b.title}</div>
+                <div class="tech-content">${b.content}</div>
+             </div>`,
+			)
+			.join("");
+
+		this.els.inspTitle.innerText = nodeData.label;
+		this.els.inspRole.innerText = doc.role;
+		this.els.inspContent.innerHTML = contentHtml;
+		this.els.inspector.classList.add("open");
+	}
+
+	inspectConn(conn) {
+		this.els.inspTitle.innerText = conn.label;
+		this.els.inspRole.innerText = "Connection Detail";
+		this.els.inspContent.innerHTML = `
             <div class="tech-block">
                 <div class="tech-title" style="color:${conn.color}">Technical Specification</div>
                 <div class="tech-content">${conn.detail}</div>
             </div>`;
-        this.els.inspector.classList.add('open');
-    }
+		this.els.inspector.classList.add("open");
+	}
 
-    closeInspector() {
-        this.els.inspector.classList.remove('open');
-    }
+	closeInspector() {
+		this.els.inspector.classList.remove("open");
+	}
 
-    showTooltip(e, conn) {
-        this.els.tooltip.querySelector('h4').innerText = conn.label;
-        this.els.tooltip.querySelector('#ttBody').innerHTML = conn.detail;
-        this.els.tooltip.classList.add('visible');
-        this.els.tooltip.style.left = (e.clientX + 15) + 'px';
-        this.els.tooltip.style.top = (e.clientY + 15) + 'px';
-    }
+	showTooltip(e, conn) {
+		this.els.tooltip.querySelector("#ttTitle").innerText = conn.label;
+		this.els.tooltip.querySelector("#ttBody").innerHTML = conn.detail;
+		this.els.tooltip.classList.add("visible");
+		this.els.tooltip.style.left = e.clientX + 15 + "px";
+		this.els.tooltip.style.top = e.clientY + 15 + "px";
+	}
 
-    // --- Simulation ---
-    runSimulation(simId) {
-        const sim = this.config.simulations.find(s => s.id === simId);
-        if (!sim) return;
+	// =========================================================================
+	// 6. SIMULATION ENGINE
+	// =========================================================================
+	runSimulation(simId) {
+		const sim = this.config.simulations.find((s) => s.id === simId);
+		if (!sim) return;
 
-        document.querySelectorAll('.active-flow').forEach(p => p.classList.remove('active-flow'));
-        document.querySelectorAll('.highlighted').forEach(n => n.classList.remove('highlighted'));
-        this.state.simulationActive = true;
+		// Reset previous states
+		document
+			.querySelectorAll(".active-flow")
+			.forEach((p) => p.classList.remove("active-flow"));
+		document
+			.querySelectorAll(".highlighted")
+			.forEach((n) => n.classList.remove("highlighted"));
 
-        this.animateSequence(sim.nodes);
-    }
+		this.state.simulationActive = true;
+		this.animateSequence(sim.nodes);
+	}
 
-    async animateSequence(nodes) {
-        for (let i = 0; i < nodes.length - 1; i++) {
-            const from = nodes[i];
-            const to = nodes[i + 1];
-            document.getElementById(from).classList.add('highlighted');
-            document.getElementById(to).classList.add('highlighted');
+	async animateSequence(nodes) {
+		for (let i = 0; i < nodes.length - 1; i++) {
+			const from = nodes[i];
+			const to = nodes[i + 1];
 
-            const paths = Array.from(document.querySelectorAll('.conn-line'));
-            const pathEl = paths.find(p =>
-                (p.getAttribute('data-from') == from && p.getAttribute('data-to') == to) ||
-                (p.getAttribute('data-from') == to && p.getAttribute('data-to') == from)
-            );
+			document.getElementById(from)?.classList.add("highlighted");
+			document.getElementById(to)?.classList.add("highlighted");
 
-            if (pathEl && !pathEl.classList.contains('hidden')) {
-                pathEl.classList.add('active-flow');
-                await this.movePacket(pathEl, from, to);
-            }
-        }
-        setTimeout(() => {
-            document.querySelectorAll('.highlighted').forEach(n => n.classList.remove('highlighted'));
-            document.querySelectorAll('.active-flow').forEach(p => p.classList.remove('active-flow'));
-            this.els.packet.style.display = 'none';
-        }, 2000);
-    }
+			const paths = Array.from(document.querySelectorAll(".conn-line"));
+			const pathEl = paths.find(
+				(p) =>
+					(p.getAttribute("data-from") == from &&
+						p.getAttribute("data-to") == to) ||
+					(p.getAttribute("data-from") == to &&
+						p.getAttribute("data-to") == from),
+			);
 
-    movePacket(pathEl, fromId, toId) {
-        return new Promise(resolve => {
-            this.els.packet.style.display = 'block';
-            const len = pathEl.getTotalLength();
-            
-            // Get path start and end points
-            const pStart = pathEl.getPointAtLength(0);
-            const pEnd = pathEl.getPointAtLength(len);
-            
-            // Get node center
-            const nFrom = this.getNodeCenter(document.getElementById(fromId));
-            
-            // Calculate distances to determine direction
-            const distToStart = Math.hypot(pStart.x - nFrom.x, pStart.y - nFrom.y);
-            const distToEnd = Math.hypot(pEnd.x - nFrom.x, pEnd.y - nFrom.y);
-            
-            // If we are closer to the end of the path, we need to reverse
-            const reverse = distToStart > distToEnd;
+			if (pathEl && !pathEl.classList.contains("hidden")) {
+				pathEl.classList.add("active-flow");
+				await this.movePacket(pathEl, from, to);
+			}
+		}
 
-            let progress = 0;
-            const animate = () => {
-                progress += 0.015; // Slightly slower for better visibility
-                if (progress >= 1) { resolve(); return; }
-                
-                const point = pathEl.getPointAtLength(reverse ? len * (1 - progress) : len * progress);
-                this.els.packet.style.left = (point.x - 6) + 'px';
-                this.els.packet.style.top = (point.y - 6) + 'px';
-                requestAnimationFrame(animate);
-            };
-            animate();
-        });
-    }
+		// Cleanup after animation
+		setTimeout(() => {
+			document
+				.querySelectorAll(".highlighted")
+				.forEach((n) => n.classList.remove("highlighted"));
+			document
+				.querySelectorAll(".active-flow")
+				.forEach((p) => p.classList.remove("active-flow"));
+			if (this.els.packet) this.els.packet.style.display = "none";
+		}, 2000);
+	}
+
+	movePacket(pathEl, fromId, toId) {
+		return new Promise((resolve) => {
+			if (!this.els.packet) {
+				resolve();
+				return;
+			}
+
+			this.els.packet.style.display = "block";
+			const len = pathEl.getTotalLength();
+
+			// Determine direction based on geometry
+			const pStart = pathEl.getPointAtLength(0);
+			const pEnd = pathEl.getPointAtLength(len);
+			const nFrom = this.getNodeCenter(document.getElementById(fromId));
+
+			const distToStart = Math.hypot(pStart.x - nFrom.x, pStart.y - nFrom.y);
+			const distToEnd = Math.hypot(pEnd.x - nFrom.x, pEnd.y - nFrom.y);
+			const reverse = distToStart > distToEnd;
+
+			let progress = 0;
+			const animate = () => {
+				progress += 0.01; // Speed factor
+				const capped = Math.min(progress, 1);
+				const point = pathEl.getPointAtLength(
+					reverse ? len * (1 - capped) : len * capped,
+				);
+				const { x, y } = this.toViewportCoords(point);
+
+				this.els.packet.style.left = x - 6 + "px";
+				this.els.packet.style.top = y - 6 + "px";
+
+				if (capped >= 1) {
+					// Small delay before resolving to ensure visual completion
+					setTimeout(() => resolve(), 50);
+				} else {
+					requestAnimationFrame(animate);
+				}
+			};
+			animate();
+		});
+	}
+
+	// =========================================================================
+	// 7. MATH & UTILITIES
+	// =========================================================================
+	getNodeCenter(el) {
+		if (!el) return { x: 0, y: 0 };
+		return {
+			x: parseInt(el.style.left) + el.offsetWidth / 2,
+			y: parseInt(el.style.top) + el.offsetHeight / 2,
+		};
+	}
+
+	getNodeEdgePoint(el, towardCenter) {
+		const center = this.getNodeCenter(el);
+		const dx = towardCenter.x - center.x;
+		const dy = towardCenter.y - center.y;
+
+		// Ray casting from center to find intersection with rectangle box
+		const hw = el.offsetWidth / 2;
+		const hh = el.offsetHeight / 2;
+		const tx = dx === 0 ? Infinity : hw / Math.abs(dx);
+		const ty = dy === 0 ? Infinity : hh / Math.abs(dy);
+		const t = Math.min(tx, ty);
+
+		return {
+			x: center.x + dx * t,
+			y: center.y + dy * t,
+		};
+	}
+
+	/**
+	 * CRITICAL FIX:
+	 * Maps an SVG Coordinate (local) to the Window/CSS Coordinate (global).
+	 * This uses the internal state (scale, pX, pY) which is strictly coupled
+	 * to the transform applied to the #canvas div.
+	 *
+	 * Formula: ScreenX = (SvgX * Scale) + PanX
+	 */
+	toViewportCoords(point) {
+		// Packet is positioned inside the transformed canvas, so use raw SVG coords.
+		return { x: point.x, y: point.y };
+	}
 }

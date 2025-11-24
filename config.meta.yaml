@@ -1,0 +1,34 @@
+meta:
+  title: Cisco ISE Architecture – Deep Dive
+  subtitle: Interactive Overview
+  version: "3.3"
+  notes:
+    - Update sites, nodes, and connections to reflect your topology.
+    - Reference deployment: single PAN, dual MnTs, two PSNs at HQ, one PSN at the branch.
+    - LDD (RSD/EPOD) is on by default (TCP 8671).
+    - WAN and dashed links mark higher-latency paths; budget ~300 ms for PAN↔PSN.
+    - MnT logging rides Secure Syslog (6514/20514) and Messaging Service (8671) with buffering.
+    - Use ./serve.sh or python3 -m http.server 8000 to preview (YAML loads via fetch).
+
+theme:
+  colors:
+    bg-dark: "#0f172a"
+    bg-panel: "rgba(15, 23, 42, 0.95)"
+    text-main: "#f8fafc"
+    text-mute: "#94a3b8"
+    border-light: "rgba(255, 255, 255, 0.15)"
+    accent-glow: "rgba(59, 130, 246, 0.6)"
+
+    # Functional Colors
+    c-admin: "#ef4444"   # Red - Admin/Replication
+    c-radius: "#3b82f6"  # Blue - RADIUS
+    c-tacacs: "#6366f1"  # Indigo - TACACS+
+    c-logs: "#10b981"    # Green - Logs
+    c-mesh: "#06b6d4"    # Cyan - LDD/Mesh
+    c-wan: "#a855f7"     # Purple - WAN
+
+    # Infrastructure
+    c-ad: "#f97316"      # Orange - Active Directory
+    c-pki: "#ec4899"     # Pink - PKI/Certificates
+    c-dhcp: "#8b5cf6"    # Violet - DHCP
+    c-dns: "#84cc16"     # Lime - DNS

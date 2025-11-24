@@ -1,0 +1,245 @@
+connections:
+  # --- Admin Plane (PAN/Cluster) ---
+  - from: pan1
+    to: pan2
+    type: admin-sync
+    label: DB Replication (TCP 1521)
+    detail: |
+      <strong>Oracle Data Guard (TLS)</strong><br/>
+      Keeps standby PAN in sync for failover; include cert/key updates.
+  - from: pan1
+    to: psn1
+    type: admin-signal
+    label: Config Push
+    detail: "<strong>Policy Distribution</strong><br/>JGroups change sets on TCP 12001; expect <300 ms latency."
+  - from: pan1
+    to: psn2
+    type: admin-signal
+    label: Config Push
+    detail: |
+      <strong>Policy Distribution</strong><br/>
+      Incremental config updates to PSN2 including certificates.
+  - from: pan1
+    to: psn3
+    type: admin-signal
+    label: WAN Config Push
+    detail: |
+      <strong>Remote Replication</strong><br/>
+      Policy updates sent over WAN; standby until PAN reachable.
+    isWan: true
+    dash: true
+  - from: pan1
+    to: mnt1
+    type: admin-signal
+    label: Admin Sync
+    detail: "<strong>Reporting Alignment</strong><br/>Keeps MnT config in step with policy DB."
+  - from: pan1
+    to: mnt2
+    type: admin-signal
+    label: Admin Sync
+    detail: "<strong>Reporting Alignment</strong><br/>Ensures standby MnT mirrors categories and certs."
+  - from: mnt1
+    to: mnt2
+    type: admin-sync
+    label: Log Replication (TCP 1521)
+    detail: |
+      <strong>Database Replication</strong><br/>
+      Primary MnT replicates operational data and reporting history to secondary.
+
+  # --- Log Plane (MnT/Syslog) ---
+  - from: psn1
+    to: mnt1
+    type: logs
+    label: Secure Syslog (6514/8671)
+    detail: "<strong>ISE Messaging Service</strong><br/>Secure Syslog with TLS queueing buffers ~2.5 hours."
+  - from: psn2
+    to: mnt1
+    type: logs
+    label: Secure Syslog (6514/8671)
+    detail: "<strong>ISE Messaging Service</strong><br/>RabbitMQ TLS channel; avoid direct NAD syslogs."
+  - from: psn3
+    to: mnt1
+    type: logs
+    label: WAN Logs (8671)
+    detail: "<strong>WAN Logging</strong><br/>Messaging Service preserves logs during outages."
+    isWan: true
+    dash: true
+
+  # --- Runtime: RADIUS Plane ---
+  - from: sw-br
+    to: psn3
+    type: radius
+    label: RADIUS (UDP 1812)
+    detail: "<strong>Access-Request</strong><br/>EAP payloads ride over UDP 1812."
+  - from: psn3
+    to: sw-br
+    type: radius
+    label: CoA (UDP 1700)
+    dash: true
+    curve: -40
+    detail: "<strong>Change of Authorization</strong><br/>Session-owner PSN issues CoA."
+  - from: pc
+    to: sw-br
+    type: radius
+    label: EAPOL
+    detail: "<strong>EAP over LAN</strong>"
+  - from: phone-mab
+    to: sw-br
+    type: radius
+    label: CDP/MAB
+    detail: "<strong>MAB</strong>"
+
+  # --- Runtime: TACACS+ Plane ---
+  - from: sw-br
+    to: psn3
+    type: tacacs
+    curve: 60
+    label: TACACS+ (TCP 49)
+    detail: "<strong>Device Administration</strong><br/>Command-level authZ."
+  - from: sw-br
+    to: psn1
+    type: tacacs
+    dash: true
+    label: TACACS+ Failover
+    detail: "<strong>Central Fallback</strong><br/>WAN path; load balancer must keep stickiness."
+    isWan: true
+
+  # --- Runtime: Infrastructure (AD/DNS/PKI) ---
+  - from: psn1
+    to: ad
+    type: ad
+    label: Kerberos (88)
+    detail: "<strong>Identity Lookup</strong><br/>Kerberos/LDAP/GC."
+  - from: psn2
+    to: ad
+    type: ad
+    label: Kerberos (88)
+    detail: Identity Lookup with LDAPS
+  - from: psn3
+    to: ad-br
+    type: ad
+    label: Local AD (88)
+    detail: "<strong>Local Auth</strong><br/>Low-latency Kerberos."
+  - from: psn3
+    to: ad
+    type: ad
+    dash: true
+    label: AD Fallback
+    detail: "<strong>WAN Fallback</strong>"
+    isWan: true
+  - from: ad
+    to: ad-br
+    type: ad
+    dash: true
+    label: AD Replication
+    detail: "<strong>Directory Sync</strong>"
+    isWan: true
+
+  # PKI & OCSP
+  - from: psn1
+    to: ca
+    type: pki
+    dash: true
+    label: OCSP (80)
+    detail: "<strong>Revocation Check</strong><br/>Short-lived OCSP responses."
+  - from: psn3
+    to: ca
+    type: pki
+    dash: true
+    label: WAN OCSP
+    detail: Remote Revocation Check with WAN tolerance
+    isWan: true
+
+  # DHCP Profiling
+  - from: sw-br
+    to: dhcp-br
+    type: dhcp
+    dash: true
+    label: DHCP Helper
+    detail: DHCP relay to branch scopes (helper)
+  - from: sw-br
+    to: psn3
+    type: dhcp
+    dash: true
+    curve: 40
+    label: DHCP Probe
+    detail: "<strong>Profiling Probe</strong><br/>DHCP copies with Option 55/60."
+  - from: dhcp-br
+    to: dhcp-dc
+    type: dhcp
+    dash: true
+    label: DHCP Sync
+    detail: Scope Failover Sync
+    isWan: true
+  - from: psn1
+    to: dhcp-dc
+    type: dhcp
+    dash: true
+    curve: -30
+    label: DHCP Probe (HQ)
+    detail: "<strong>Profiling Probe</strong>"
+
+  # DNS
+  - from: psn1
+    to: ad
+    type: dns
+    dash: true
+    curve: -30
+    label: DNS Query (53)
+    detail: "<strong>Resolution</strong><br/>Forward/reverse lookups."
+  - from: psn2
+    to: ad
+    type: dns
+    dash: true
+    curve: -30
+    label: DNS Query (53)
+    detail: Resolution with reverse lookups
+  - from: psn3
+    to: ad-br
+    type: dns
+    dash: true
+    curve: -20
+    label: DNS Query (53)
+    detail: "<strong>Local Resolution</strong>"
+  - from: psn3
+    to: ad
+    type: dns
+    dash: true
+    label: DNS Fallback
+    detail: "<strong>WAN Resolution</strong>"
+    isWan: true
+  - from: pc
+    to: ad-br
+    type: dns
+    dash: true
+    curve: 80
+    label: Endpoint DNS
+    detail: Endpoint resolution
+
+  # --- Runtime: Horizontal Mesh (LDD) ---
+  - from: psn1
+    to: psn2
+    type: mesh
+    dash: true
+    label: LDD (8671)
+    detail: "<strong>Session Replication</strong>"
+  - from: psn2
+    to: psn3
+    type: mesh
+    dash: true
+    label: LDD WAN
+    detail: Cross-site Session Info
+    isWan: true
+  - from: psn2
+    to: psn1
+    type: mesh
+    dash: true
+    label: LDD Return
+    detail: "<strong>Session Ownership</strong><br/>Back-propagates updates."
+  - from: psn3
+    to: psn2
+    type: mesh
+    dash: true
+    label: LDD Return WAN
+    detail: Branch-to-HQ session replication
+    isWan: true

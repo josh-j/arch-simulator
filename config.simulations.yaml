@@ -1,0 +1,73 @@
+simulations:
+  # --- Core Authentication Flows ---
+  - id: eap
+    label: EAP-TLS Auth (Branch)
+    icon: fas fa-play-circle
+    description: Branch EAP-TLS mutual auth (PSN EAP cert, client cert); Access-Accept/CoA enforces VLAN/SGT with LDD session ownership.
+    nodes: [pc, sw-br, psn3, ad-br, psn3, sw-br, pc]
+  - id: tacacs
+    label: TACACS+ Admin (Device Mgmt)
+    icon: fas fa-terminal
+    description: Device admin uses TACACS+ against branch PSN and AD; command accounting rides TCP 49.
+    nodes: [sw-br, psn3, ad-br, psn3, sw-br]
+  - id: profiling
+    label: Device Profiling (DHCP)
+    icon: fas fa-search
+    description: Legacy phone profiled via DHCP helper and PSN analysis (Option 55/60).
+    nodes: [phone-mab, sw-br, dhcp-br, sw-br, psn3, sw-br]
+
+  # --- Operations & Logging ---
+  - id: logging
+    label: Secure Logging (WAN)
+    icon: fas fa-file-alt
+    description: Branch PSN sends logs to HQ MnT via Secure Syslog buffered by Messaging Service (8671).
+    nodes: [psn3, mnt1]
+  - id: admin-sync
+    label: Admin & Log Sync (PAN→MnT)
+    icon: fas fa-sync-alt
+    description: PAN syncs config and MnT replication status (JGroups + Data Guard).
+    nodes: [pan1, mnt1, mnt2]
+  - id: admin-replication
+    label: Admin Replication (PAN)
+    icon: fas fa-database
+    description: PAN replicates config to standby and PSNs; includes certs and node registrations.
+    nodes: [pan1, pan2, pan1, psn1, pan1, psn2, pan1, psn3]
+  - id: ldd-replication
+    label: Session Replication (LDD)
+    icon: fas fa-project-diagram
+    description: PSNs replicate session state for survivability using RabbitMQ/TLS on 8671.
+    nodes: [psn3, psn2, psn1, psn2, psn3]
+
+  # --- Survivability & Failover ---
+  - id: tacacs-fallback
+    label: TACACS+ Fallback (WAN)
+    icon: fas fa-shield-alt
+    description: TACACS+ falls back over WAN to HQ PSN and AD; stickiness avoids mid-session state errors.
+    nodes: [sw-br, psn1, ad, psn1, sw-br]
+  - id: ad-fallback
+    label: AD Fallback (WAN)
+    icon: fas fa-globe
+    description: Branch PSN fails over to HQ AD for identity lookup when local DC is unreachable.
+    nodes: [psn3, ad, psn3]
+  - id: ca-check
+    label: CRL/OCSP (Branch)
+    icon: fas fa-shield-alt
+    description: Branch PSN checks HQ CA for revocation status via WAN OCSP/CRL.
+    nodes: [psn3, ca, psn3]
+
+  # --- Background/Infra Flows (Optional Demos) ---
+  - id: ad-replication
+    label: AD Replication (WAN)
+    icon: fas fa-exchange-alt
+    description: HQ AD replicates to Branch DC; WAN fallback supports RADIUS when local DC is down.
+    nodes: [ad, ad-br, ad]
+  - id: dhcp-failover
+    label: DHCP Failover Sync
+    icon: fas fa-random
+    description: Branch DHCP syncs scopes with HQ; helper feeds profiling copies to PSN.
+    nodes: [dhcp-br, dhcp-dc, dhcp-br]
+  - id: logging-hq
+    label: Logging (HQ PSN)
+    icon: fas fa-file-alt
+    description: HQ PSN sends Secure Syslog to primary MnT via Messaging Service (8671).
+    nodes: [psn1, mnt1]

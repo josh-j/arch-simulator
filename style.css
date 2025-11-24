@@ -53,13 +53,104 @@ body {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  max-width: 400px;
+  max-width: 320px;
   max-height: 95vh;
 }
 
 .header-panel {
-  padding: 20px;
+  padding: 14px;
   border-left: 4px solid var(--c-radius);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.logo-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.logo-subtitle {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-mute);
+}
+
+.accent {
+  color: var(--c-radius);
+}
+
+.created-by {
+  margin-top: 4px;
+}
+
+.mini-legend {
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  color: var(--text-mute);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.legend-line {
+  display: inline-block;
+  width: 20px;
+  height: 0;
+  border-top: 3px solid var(--text-main);
+}
+
+.legend-line.dashed {
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+.header-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text-mute);
+  margin-top: 6px;
+}
+
+.created-by, .credit-link {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.created-by:hover, .credit-link:hover {
+  color: var(--c-radius);
+}
+
+.credit-link {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.credit-link:hover {
+  color: var(--c-radius);
+}
+
+.header-panel h2 {
+  margin: 0;
 }
 
 .search-box {
@@ -90,7 +181,7 @@ body {
 }
 
 .controls-panel {
-  padding: 15px;
+  padding: 12px;
   overflow-y: auto;
 }
 
@@ -147,11 +238,15 @@ body {
   border-radius: 6px;
   font-size: 0.85rem;
   transition: all 0.2s;
+  position: relative;
+  z-index: 1;
 }
 
 .sim-btn:hover {
   background: rgba(59, 130, 246, 0.2);
   transform: translateX(5px);
+  opacity: 1;
+  z-index: 3;
 }
 
 .sim-btn i {
@@ -161,7 +256,7 @@ body {
 /* Filter Grid */
 .filter-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
@@ -181,6 +276,7 @@ body {
 
 .filter-btn:hover {
   background: rgba(255, 255, 255, 0.08);
+  opacity: 1;
 }
 
 .filter-btn.active {
@@ -224,6 +320,21 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: start;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
 }
 
 .insp-body {
@@ -310,8 +421,8 @@ body {
 
 #canvas {
   position: absolute;
-  width: 6000px;
-  height: 4000px;
+  width: 3800px;
+  height: 2400px;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
@@ -325,6 +436,7 @@ svg {
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  z-index: 5;
 }
 
 /* The Visible Line */
@@ -333,6 +445,21 @@ svg {
   stroke-width: 3;
   transition: stroke-width 0.2s, opacity 0.3s, filter 0.2s;
   pointer-events: none;
+}
+
+.conn-line marker-end {
+  markerWidth: 4;
+  markerHeight: 4;
+  transition: marker-width 0.2s ease, marker-height 0.2s ease;
+}
+
+.conn-line.hover-highlight {
+  stroke-width: 3.5;
+}
+
+.conn-line.hover-highlight marker-end {
+  markerWidth: 7;
+  markerHeight: 7;
 }
 
 /* The Interaction Hitbox (Invisible but thick) */
@@ -348,7 +475,6 @@ svg {
 .conn-line.hovered {
   stroke-width: 6 !important;
   filter: drop-shadow(0 0 8px currentColor);
-  z-index: 999;
   opacity: 1 !important;
 }
 
@@ -370,14 +496,14 @@ svg {
 }
 
 /* Packet Animation */
-.packet {
+#packet {
   position: absolute;
   width: 12px;
   height: 12px;
-  background: #fff;
+  background: radial-gradient(circle at 30% 30%, #fff, #60a5fa);
   border-radius: 50%;
   box-shadow: 0 0 15px 5px var(--c-radius);
-  z-index: 9999;
+  z-index: 5000;
   pointer-events: none;
   display: none;
 }
@@ -410,12 +536,14 @@ svg {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
   transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
   cursor: grab;
-  z-index: 10;
+  z-index: 4;
 }
 
 .node:hover {
   transform: translateY(-5px);
   border-color: rgba(255, 255, 255, 0.4);
+  opacity: 1;
+  z-index: 6;
 }
 
 .node:active {
@@ -511,8 +639,9 @@ svg {
 /* Site Labels */
 .site-group {
   position: absolute;
-  border: 2px dashed rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
+  border: 2px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
   pointer-events: none;
   transition: opacity 0.3s;
 }
@@ -530,6 +659,24 @@ svg {
   font-size: 1.5rem;
   text-transform: uppercase;
   letter-spacing: 2px;
+}
+
+.infra-box {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 8px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.infra-label {
+  font-size: 0.75rem;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
 }
 
 /* Tooltip */
