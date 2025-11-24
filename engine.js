@@ -454,15 +454,26 @@ export class ArchitectureSimulator {
         return new Promise(resolve => {
             this.els.packet.style.display = 'block';
             const len = pathEl.getTotalLength();
+            
+            // Get path start and end points
             const pStart = pathEl.getPointAtLength(0);
-            const nStart = this.getNodeCenter(document.getElementById(fromId));
-            const distStart = Math.hypot(pStart.x - nStart.x, pStart.y - nStart.y);
-            const reverse = distStart > 50;
+            const pEnd = pathEl.getPointAtLength(len);
+            
+            // Get node center
+            const nFrom = this.getNodeCenter(document.getElementById(fromId));
+            
+            // Calculate distances to determine direction
+            const distToStart = Math.hypot(pStart.x - nFrom.x, pStart.y - nFrom.y);
+            const distToEnd = Math.hypot(pEnd.x - nFrom.x, pEnd.y - nFrom.y);
+            
+            // If we are closer to the end of the path, we need to reverse
+            const reverse = distToStart > distToEnd;
 
             let progress = 0;
             const animate = () => {
-                progress += 0.02;
+                progress += 0.015; // Slightly slower for better visibility
                 if (progress >= 1) { resolve(); return; }
+                
                 const point = pathEl.getPointAtLength(reverse ? len * (1 - progress) : len * progress);
                 this.els.packet.style.left = (point.x - 6) + 'px';
                 this.els.packet.style.top = (point.y - 6) + 'px';
